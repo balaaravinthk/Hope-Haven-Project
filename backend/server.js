@@ -1,0 +1,13 @@
+import app from './src/app.js';
+import { env } from './src/config/env.js';
+
+const PORT = env.PORT || 5000;
+
+app.listen(PORT, () => {
+  console.log(`=========================================`);
+  console.log(`  HOPE HAVEN Backend API Server Running`);
+  console.log(`  Environment: ${env.NODE_ENV}`);
+  console.log(`  Listening on: http://localhost:${PORT}`);
+  console.log(`  API Health:   http://localhost:${PORT}/api/health`);
+  console.log(`=========================================`);
+});
