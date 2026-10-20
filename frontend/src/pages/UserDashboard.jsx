@@ -41,6 +41,13 @@ export default function UserDashboard() {
   const [donateModal, setDonateModal] = useState(null);
   const [volunteerModal, setVolunteerModal] = useState(null);
   const [donationAmount, setDonationAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("UPI / PhonePe");
+  const [taxPan, setTaxPan] = useState("");
+  const [showDonor, setShowDonor] = useState(true);
+  const [isDonating, setIsDonating] = useState(false);
+  const [donateError, setDonateError] = useState("");
+  const [donationReceiptId, setDonationReceiptId] = useState(null);
+
   const [success, setSuccess] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
   const [hideImpact, setHideImpact] = useState(false);
@@ -103,34 +110,56 @@ export default function UserDashboard() {
 
   const handleDonateSubmit = async (e) => {
     e.preventDefault();
+    const donatedAmt = Number(donationAmount);
+    if (!donatedAmt || donatedAmt <= 0) return;
+
+    setIsDonating(true);
+    setDonateError("");
+
     try {
-      // Optional: Post donation record to backend ledger
-      await api.post("/donations", {
-        orphanageId: donateModal.orphanage?.id || donateModal.orphanageId,
-        requirementId: donateModal.id || donateModal._id,
-        amount: Number(donationAmount),
-        donorName: user?.name || "Supporter",
+      const targetReqId = donateModal.id || donateModal._id;
+      const targetOrphId = donateModal.orphanage?.id || donateModal.orphanageId || donateModal.orphanage?._id;
+
+      const res = await api.post("/donations", {
+        orphanageId: targetOrphId,
+        requirementId: targetReqId,
+        amount: donatedAmt,
+        donorName: user?.name || "Generous Supporter",
         donorEmail: user?.email || null,
-        paymentMethod: "UPI / PhonePe",
-      }).catch(() => {
-        // Fallback for simulation in case backend payment endpoint requires gateway config
+        showDonor,
+        paymentMethod,
+        taxPan: taxPan.trim() || null,
       });
 
+      const receiptId = res.data?.data?.receiptId || `HH-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+      setDonationReceiptId(receiptId);
+
+      // Dynamically update card progress bar in local state immediately
+      setNeeds((prevNeeds) =>
+        prevNeeds.map((item) => {
+          if (item.id === targetReqId || item._id === targetReqId) {
+            const updatedRaised = (item.amountRaised || 0) + donatedAmt;
+            const updatedPct = item.amountNeeded > 0
+              ? Math.min(100, Math.round((updatedRaised / item.amountNeeded) * 100))
+              : 0;
+            return {
+              ...item,
+              amountRaised: updatedRaised,
+              percentRaised: updatedPct,
+              percentageRaised: updatedPct,
+              status: updatedRaised >= item.amountNeeded ? "fulfilled" : item.status,
+            };
+          }
+          return item;
+        })
+      );
+
       setSuccess(true);
-      // Refresh list to update amounts
-      setTimeout(() => {
-        setSuccess(false);
-        setDonateModal(null);
-        setDonationAmount("");
-        fetchRequirements();
-      }, 2500);
-    } catch {
-      setSuccess(true);
-      setTimeout(() => {
-        setSuccess(false);
-        setDonateModal(null);
-        setDonationAmount("");
-      }, 2500);
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || "Failed to process donation.";
+      setDonateError(msg);
+    } finally {
+      setIsDonating(false);
     }
   };
 
@@ -579,30 +608,78 @@ export default function UserDashboard() {
       {donateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm">
           <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl animate-rise relative">
-            <button onClick={() => { setDonateModal(null); setSuccess(false); }} className="absolute top-4 right-4 text-muted hover:text-navy cursor-pointer">
+            <button
+              onClick={() => {
+                setDonateModal(null);
+                setSuccess(false);
+                setDonateError("");
+              }}
+              className="absolute top-4 right-4 text-muted hover:text-navy cursor-pointer"
+            >
               <X size={20} />
             </button>
             {success ? (
-              <div className="text-center py-8">
-                <div className="w-16 h-16 bg-leaf-soft text-leaf rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle2 size={32} />
+              <div className="text-center py-6">
+                <div className="w-16 h-16 bg-leaf-soft text-leaf rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
+                  <CheckCircle2 size={36} />
                 </div>
-                <h3 className="font-display text-2xl font-bold text-navy">Thank You!</h3>
-                <p className="text-muted mt-2">Your contribution has been recorded in the platform ledger.</p>
+                <h3 className="font-display text-2xl font-bold text-navy">Donation Successful!</h3>
+                <p className="text-sm text-muted mt-1.5 leading-relaxed">
+                  Thank you for your generous contribution of <strong className="text-leaf-deep">{formatInr(donationAmount)}</strong> to{" "}
+                  <span className="font-semibold text-navy">{donateModal.orphanage?.name || "Hope Children's Home"}</span>.
+                </p>
+
+                {/* 80G Receipt Identifier Card */}
+                <div className="mt-5 p-4 rounded-xl border border-leaf/30 bg-leaf-soft/40 text-left">
+                  <div className="flex justify-between items-center text-xs text-muted mb-1.5">
+                    <span>Receipt Identifier:</span>
+                    <span className="font-mono font-extrabold text-navy text-sm">{donationReceiptId}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs text-muted">
+                    <span>Tax Exemption:</span>
+                    <span className="text-leaf-deep font-semibold">Eligible for 50% 80G Tax Exemption</span>
+                  </div>
+                </div>
+
                 {donateModal.urgency === "Critical" && (
-                  <p className="text-sm text-yellow-600 mt-2 font-bold">+ You earned progress toward a Golden Trophy!</p>
+                  <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2.5 mt-4 font-bold flex items-center justify-center gap-1.5">
+                    🏆 You earned progress toward a Golden Trophy for supporting an emergency need!
+                  </p>
                 )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSuccess(false);
+                    setDonateModal(null);
+                    setDonationAmount("");
+                    setDonationReceiptId(null);
+                    setTaxPan("");
+                    fetchRequirements();
+                  }}
+                  className="mt-6 w-full rounded-xl bg-leaf px-5 py-3 font-display font-bold text-white transition-colors hover:bg-leaf-deep cursor-pointer"
+                >
+                  Done
+                </button>
               </div>
             ) : (
               <>
                 <h3 className="font-display text-xl font-bold text-navy mb-1">Make a Donation</h3>
-                <p className="text-sm text-muted mb-6">
+                <p className="text-sm text-muted mb-5">
                   Supporting: <strong className="text-navy">{donateModal.orphanage?.name || "Hope Children's Home"}</strong>
                 </p>
-                <form onSubmit={handleDonateSubmit} className="space-y-5">
+
+                {donateError && (
+                  <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+                    <AlertCircle size={16} className="shrink-0 mt-0.5 text-rose-600" />
+                    <span>{donateError}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleDonateSubmit} className="space-y-4">
                   <div>
                     <label className="block text-xs font-bold text-navy mb-1.5">Amount (₹)</label>
-                    <div className="grid grid-cols-3 gap-2 mb-3">
+                    <div className="grid grid-cols-3 gap-2 mb-2.5">
                       {[500, 1000, 2500].map((amt) => (
                         <button 
                           key={amt} 
@@ -623,14 +700,55 @@ export default function UserDashboard() {
                       value={donationAmount} 
                       onChange={(e) => setDonationAmount(e.target.value)} 
                       placeholder="Enter custom amount" 
-                      className="w-full border border-line bg-mist/30 rounded-xl px-4 py-3 text-sm focus:border-leaf outline-none" 
+                      className="w-full border border-line bg-mist/30 rounded-xl px-4 py-2.5 text-sm focus:border-leaf outline-none" 
                     />
                   </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-navy mb-1.5">Payment Method</label>
+                    <select
+                      value={paymentMethod}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      className="w-full border border-line bg-mist/30 rounded-xl px-3.5 py-2.5 text-sm focus:border-leaf outline-none"
+                    >
+                      <option value="UPI / PhonePe">UPI / PhonePe</option>
+                      <option value="UPI / GPay">UPI / GPay</option>
+                      <option value="Net Banking">Net Banking</option>
+                      <option value="Credit Card">Credit Card</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-navy mb-1">
+                      PAN Number <span className="text-muted font-normal">(Optional for 80G Tax Exemption Receipt)</span>
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={10}
+                      value={taxPan}
+                      onChange={(e) => setTaxPan(e.target.value.toUpperCase())}
+                      placeholder="e.g. ABCDE1234F"
+                      className="w-full border border-line bg-mist/30 rounded-xl px-3.5 py-2 text-sm uppercase focus:border-leaf outline-none"
+                    />
+                  </div>
+
+                  <label className="flex items-center gap-2 cursor-pointer select-none pt-1">
+                    <input
+                      type="checkbox"
+                      checked={showDonor}
+                      onChange={(e) => setShowDonor(e.target.checked)}
+                      className="w-4 h-4 rounded border-line accent-leaf"
+                    />
+                    <span className="text-xs text-muted">Show my name in public donor recognition feed</span>
+                  </label>
+
                   <button 
                     type="submit" 
-                    className="w-full flex items-center justify-center gap-2 bg-leaf hover:bg-leaf-deep text-white font-display font-bold py-3 rounded-xl transition-colors cursor-pointer"
+                    disabled={isDonating || !donationAmount || Number(donationAmount) <= 0}
+                    className="w-full mt-2 flex items-center justify-center gap-2 bg-leaf hover:bg-leaf-deep text-white font-display font-bold py-3 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
                   >
-                    <CreditCard size={18} /> Proceed to Pay
+                    <CreditCard size={18} />
+                    <span>{isDonating ? "Processing..." : `Proceed to Pay ₹${donationAmount || "0"}`}</span>
                   </button>
                 </form>
               </>

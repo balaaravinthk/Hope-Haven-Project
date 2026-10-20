@@ -52,7 +52,7 @@ function OrphanageDashboard() {
   const [reqForm, setReqForm] = useState({ title: "", category: "Food & Nutrition", amountNeeded: "" });
 
   // Donations state
-  const [donations] = useState(initialDonations);
+  const [donations, setDonations] = useState(initialDonations);
   const [activeReceipt, setActiveReceipt] = useState(null);
 
   // Volunteers state
@@ -108,9 +108,22 @@ function OrphanageDashboard() {
     }
   };
 
+  // Load live donations ledger from GET /api/donations
+  const fetchLiveDonations = async () => {
+    try {
+      const res = await api.get("/donations");
+      if (res.data?.data && Array.isArray(res.data.data)) {
+        setDonations(res.data.data);
+      }
+    } catch (err) {
+      console.warn("Could not load live donations:", err.message);
+    }
+  };
+
   useEffect(() => {
     fetchLiveProfile();
     fetchLiveRequirements();
+    fetchLiveDonations();
   }, []);
 
   // Key totals
