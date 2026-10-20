@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Bell, LogOut, Menu, X } from "lucide-react";
 import logoBest from "../assets/logoisthebest.png";
+import api from "../services/api";
 
 // Data & shared
 import { DEFAULT_PROFILE, navItems, initialRequirements, initialDonations, initialVolunteers, initialVolunteerRoles, initialNotifications } from "./dashboard/constants";
@@ -70,9 +71,47 @@ function OrphanageDashboard() {
   // Profile Edit modal
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [editProfileForm, setEditProfileForm] = useState({ ...profile });
+  const [loadingData, setLoadingData] = useState(false);
 
   // Sync verification status changes
   useEffect(() => { setProfile((prev) => ({ ...prev, verificationStatus })); }, [verificationStatus]);
+
+  // Load live profile from GET /api/orphanages/me
+  const fetchLiveProfile = async () => {
+    try {
+      const res = await api.get("/orphanages/me");
+      if (res.data?.data) {
+        const liveProfile = res.data.data;
+        setProfile((prev) => ({ ...prev, ...liveProfile }));
+        setEditProfileForm((prev) => ({ ...prev, ...liveProfile }));
+        if (liveProfile.verificationStatus) {
+          setVerificationStatus(liveProfile.verificationStatus);
+        }
+      }
+    } catch (err) {
+      console.warn("Could not load live orphanage profile:", err.message);
+    }
+  };
+
+  // Load live requirements from GET /api/orphanages/me/requirements
+  const fetchLiveRequirements = async () => {
+    try {
+      setLoadingData(true);
+      const res = await api.get("/orphanages/me/requirements");
+      if (res.data?.data && Array.isArray(res.data.data)) {
+        setRequirements(res.data.data);
+      }
+    } catch (err) {
+      console.warn("Could not load live orphanage requirements:", err.message);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLiveProfile();
+    fetchLiveRequirements();
+  }, []);
 
   // Key totals
   const totalDonations = useMemo(() => donations.reduce((sum, d) => sum + (d.status === "Completed" ? d.amount : 0), 0), [donations]);
@@ -81,27 +120,70 @@ function OrphanageDashboard() {
   const unreadNotifications = notifications.filter((n) => !n.read).length;
 
   // ── Requirement Actions ──────────────────────────────────────────────
-  const handleSaveRequirement = (e) => {
+  const handleSaveRequirement = async (e) => {
     e.preventDefault();
     const needed = Number(reqForm.amountNeeded);
     if (!reqForm.title.trim() || !needed) return;
-    if (editingReqId) {
-      setRequirements((prev) => prev.map((item) => item.id === editingReqId ? { ...item, title: reqForm.title.trim(), category: reqForm.category, amountNeeded: needed, status: item.amountRaised >= needed ? "fulfilled" : item.status } : item));
-    } else {
-      setRequirements((prev) => [{ id: Date.now(), title: reqForm.title.trim(), category: reqForm.category, amountNeeded: needed, amountRaised: 0, status: "active" }, ...prev]);
-      setNotifications((prev) => [{ id: Date.now(), title: "New requirement published", text: `You posted a new requirement: "${reqForm.title.trim()}" (Needed: ${formatInr(needed)})`, time: "Just now", type: "requirement", read: false }, ...prev]);
+
+    try {
+      if (editingReqId) {
+        // Edit existing requirement via PUT /api/requirements/:id
+        await api.put(`/requirements/${editingReqId}`, {
+          title: reqForm.title.trim(),
+          category: reqForm.category,
+          amountNeeded: needed,
+        });
+      } else {
+        // Post new requirement via POST /api/requirements
+        await api.post("/requirements", {
+          title: reqForm.title.trim(),
+          category: reqForm.category,
+          amountNeeded: needed,
+          orphanageId: profile._id || profile.id,
+        });
+        setNotifications((prev) => [{ id: Date.now(), title: "New requirement published", text: `You posted a new requirement: "${reqForm.title.trim()}" (Needed: ${formatInr(needed)})`, time: "Just now", type: "requirement", read: false }, ...prev]);
+      }
+      await fetchLiveRequirements();
+    } catch (err) {
+      console.error("Error saving requirement:", err);
+      // Local fallback
+      if (editingReqId) {
+        setRequirements((prev) => prev.map((item) => (item.id === editingReqId || item._id === editingReqId) ? { ...item, title: reqForm.title.trim(), category: reqForm.category, amountNeeded: needed, status: item.amountRaised >= needed ? "fulfilled" : item.status } : item));
+      } else {
+        setRequirements((prev) => [{ id: Date.now(), title: reqForm.title.trim(), category: reqForm.category, amountNeeded: needed, amountRaised: 0, status: "active" }, ...prev]);
+      }
     }
+
     setReqForm({ title: "", category: "Food & Nutrition", amountNeeded: "" });
     setEditingReqId(null);
     setShowReqModal(false);
   };
 
-  const startEditRequirement = (item) => { setEditingReqId(item.id); setReqForm({ title: item.title, category: item.category || "Food & Nutrition", amountNeeded: String(item.amountNeeded) }); setShowReqModal(true); };
-  const deleteRequirement = (id) => setRequirements((prev) => prev.filter((item) => item.id !== id));
+  const startEditRequirement = (item) => {
+    setEditingReqId(item.id || item._id);
+    setReqForm({ title: item.title, category: item.category || "Food & Nutrition", amountNeeded: String(item.amountNeeded) });
+    setShowReqModal(true);
+  };
 
-  const markFulfilled = (id) => {
-    setRequirements((prev) => prev.map((item) => item.id === id ? { ...item, status: "fulfilled", amountRaised: item.amountNeeded } : item));
-    const item = requirements.find((r) => r.id === id);
+  const deleteRequirement = async (id) => {
+    try {
+      await api.delete(`/requirements/${id}`);
+      await fetchLiveRequirements();
+    } catch (err) {
+      console.error("Error deleting requirement:", err);
+      setRequirements((prev) => prev.filter((item) => item.id !== id && item._id !== id));
+    }
+  };
+
+  const markFulfilled = async (id) => {
+    try {
+      await api.put(`/requirements/${id}`, { status: "fulfilled" });
+      await fetchLiveRequirements();
+    } catch (err) {
+      console.error("Error marking fulfilled:", err);
+      setRequirements((prev) => prev.map((item) => (item.id === id || item._id === id) ? { ...item, status: "fulfilled", amountRaised: item.amountNeeded } : item));
+    }
+    const item = requirements.find((r) => r.id === id || r._id === id);
     if (item) setNotifications((prev) => [{ id: Date.now(), title: "Requirement fulfilled", text: `Requirement "${item.title}" has been marked as 100% fulfilled.`, time: "Just now", type: "requirement", read: false }, ...prev]);
   };
 
@@ -120,11 +202,19 @@ function OrphanageDashboard() {
     setShowRoleModal(false);
   };
 
-  // ── Profile & Settings Save ──────────────────────────────────────────
-  const handleSaveProfile = (e) => {
+  // ── Profile Save (PUT /api/orphanages/me) ───────────────────────────
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
-    setProfile(editProfileForm);
-    try { localStorage.setItem("orphanageProfile", JSON.stringify(editProfileForm)); } catch (err) { console.warn("Error saving profile to localStorage", err); }
+    try {
+      const res = await api.put("/orphanages/me", editProfileForm);
+      const updated = res.data?.data || editProfileForm;
+      setProfile(updated);
+      setEditProfileForm(updated);
+      try { localStorage.setItem("orphanageProfile", JSON.stringify(updated)); } catch (err) { console.warn("Error saving profile to localStorage", err); }
+    } catch (err) {
+      console.error("Error updating profile via PUT /api/orphanages/me:", err);
+      setProfile(editProfileForm);
+    }
     setShowProfileModal(false);
   };
 

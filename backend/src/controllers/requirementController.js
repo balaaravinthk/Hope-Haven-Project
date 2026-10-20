@@ -303,8 +303,18 @@ export const createRequirement = async (req, res, next) => {
 export const updateRequirement = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const updated = await Requirement.findByIdAndUpdate(id, req.body, {
-      new: true,
+    const updateData = { ...req.body };
+
+    // If marking as fulfilled, ensure amountRaised fulfills amountNeeded
+    if (updateData.status === 'fulfilled') {
+      const existing = await Requirement.findById(id);
+      if (existing && (!updateData.amountRaised || updateData.amountRaised < existing.amountNeeded)) {
+        updateData.amountRaised = existing.amountNeeded;
+      }
+    }
+
+    const updated = await Requirement.findByIdAndUpdate(id, updateData, {
+      returnDocument: 'after',
       runValidators: true,
     }).populate('orphanageId');
 
@@ -312,7 +322,12 @@ export const updateRequirement = async (req, res, next) => {
       return sendError(res, 'Requirement not found', null, 404);
     }
 
-    return sendSuccess(res, 'Requirement updated successfully', updated);
+    const formatted = {
+      ...updated.toObject(),
+      id: updated._id.toString(),
+    };
+
+    return sendSuccess(res, 'Requirement updated successfully', formatted);
   } catch (error) {
     next(error);
   }
