@@ -12,8 +12,11 @@ import {
   ShieldCheck,
   CheckCircle2,
   Clock,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
 import logoBest from "../assets/logoisthebest.png";
+import api from "../services/api";
 
 const roles = [
   {
@@ -148,9 +151,12 @@ function Register() {
   const [aadhaarError, setAadhaarError] = useState("");
   const [otpTimer, setOtpTimer] = useState(0);
   const [demoOtpHint, setDemoOtpHint] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [apiError, setApiError] = useState("");
 
   const updateField = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+    if (apiError) setApiError("");
     if (field === "aadhaarNumber" || field === "contactNumber") {
       setAadhaarVerified(false);
       setOtpSent(false);
@@ -168,9 +174,13 @@ function Register() {
   }, [otpTimer]);
 
   useEffect(() => {
-    if (!submitted || role !== "orphanage") return undefined;
+    if (!submitted) return undefined;
     if (countdown <= 0) {
-      navigate("/orphanage/dashboard");
+      if (role === "orphanage") {
+        navigate("/orphanage/dashboard");
+      } else {
+        navigate("/dashboard");
+      }
       return undefined;
     }
     const id = setTimeout(() => setCountdown((c) => c - 1), 1000);
@@ -194,6 +204,7 @@ function Register() {
     setFiles(initialFiles);
     setPhotoPreview("");
     setFileError("");
+    setApiError("");
     resetAadhaarFlow();
   };
 
@@ -274,32 +285,107 @@ function Register() {
     setPhotoPreview("");
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     setFileError("");
     setAadhaarError("");
-    if (role === "orphanage") {
-      const savedProfile = {
-        name: form.organizationName?.trim() || "Hope Children’s Home",
-        type: form.organizationType || "Children’s Home / CCI",
-        address: form.address || "12, Green Park Road, Coimbatore, Tamil Nadu — 641001",
-        contact: form.contactNumber || "+91 98765 43210",
-        email: form.orgEmail || "hopehome@email.com",
-        registrationNumber: form.registrationNumber || "TN/CCI/2019/0842",
-        pan: form.panNumber || "ABCDE1234F",
-        cciJj: form.cciJjNumber || "JJ/CCI/TN/0842",
-        authorizedPerson: form.authorizedPersonName || "Authorized Representative",
-        photoPreview: photoPreview || null,
-        verificationStatus: "Pending",
-      };
-      try {
-        localStorage.setItem("orphanageProfile", JSON.stringify(savedProfile));
-      } catch (err) {
-        console.warn("Could not save orphanageProfile to localStorage", err);
-      }
-      setCountdown(5);
+    setApiError("");
+
+    if (role === "orphanage" && !aadhaarVerified) {
+      setAadhaarError("Please verify the authorized representative's Aadhaar via OTP before submitting.");
+      return;
     }
-    setSubmitted(true);
+
+    setIsSubmitting(true);
+
+    try {
+      const formData = new FormData();
+
+      if (role === "orphanage") {
+        formData.append("role", "orphanage");
+        formData.append("organizationName", form.organizationName?.trim() || "");
+        formData.append("organizationType", form.organizationType || "Children’s Home / CCI");
+        formData.append("registrationNumber", form.registrationNumber?.trim() || "");
+        formData.append("address", form.address?.trim() || "");
+        formData.append("city", form.city?.trim() || "");
+        formData.append("contactNumber", form.contactNumber?.trim() || "");
+        formData.append("orgEmail", form.orgEmail?.trim() || "");
+        formData.append("panNumber", form.panNumber?.trim()?.toUpperCase() || "");
+        formData.append("cciJjNumber", form.cciJjNumber?.trim() || "");
+        formData.append("authorizedPersonName", form.authorizedPersonName?.trim() || "");
+        formData.append("aadhaarNumber", form.aadhaarNumber.replace(/\s/g, ""));
+        formData.append("aadhaarVerified", "true");
+        formData.append("password", form.password);
+
+        // Append building photo (2MB max) and registration documents (5MB max)
+        if (files.frontPicture) {
+          formData.append("buildingPhoto", files.frontPicture);
+        }
+        if (files.registrationCertificate) {
+          formData.append("registrationDoc", files.registrationCertificate);
+        }
+        if (files.idProof) {
+          formData.append("registrationDoc", files.idProof);
+        }
+        if (files.addressProof) {
+          formData.append("registrationDoc", files.addressProof);
+        }
+      } else {
+        formData.append("role", "supporter");
+        formData.append("name", form.fullName?.trim() || "");
+        formData.append("email", form.email?.trim() || "");
+        formData.append("password", form.password);
+        if (form.phone) {
+          formData.append("phone", form.phone.trim());
+        }
+        if (form.city) {
+          formData.append("city", form.city.trim());
+        }
+      }
+
+      // Submit multipart registration to backend
+      const response = await api.post("/auth/register", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      const data = response.data?.data;
+      if (data?.accessToken && data?.user) {
+        localStorage.setItem("token", data.accessToken);
+        localStorage.setItem("user", JSON.stringify(data.user));
+      }
+
+      if (role === "orphanage") {
+        const savedProfile = {
+          name: form.organizationName?.trim() || "Hope Children’s Home",
+          type: form.organizationType || "Children’s Home / CCI",
+          address: form.address || "12, Green Park Road, Coimbatore, Tamil Nadu",
+          contact: form.contactNumber || "+91 98765 43210",
+          email: form.orgEmail || "hopehome@email.com",
+          registrationNumber: form.registrationNumber || "TN/CCI/2019/0842",
+          pan: form.panNumber || "ABCDE1234F",
+          cciJj: form.cciJjNumber || "JJ/CCI/TN/0842",
+          authorizedPerson: form.authorizedPersonName || "Authorized Representative",
+          photoPreview: photoPreview || null,
+          verificationStatus: "Pending",
+        };
+        try {
+          localStorage.setItem("orphanageProfile", JSON.stringify(savedProfile));
+        } catch (err) {
+          console.warn("Could not save orphanageProfile to localStorage", err);
+        }
+      }
+
+      setCountdown(5);
+      setSubmitted(true);
+    } catch (err) {
+      const errorMsg =
+        err.response?.data?.message || err.message || "Registration failed. Please check your inputs and try again.";
+      setApiError(errorMsg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const FieldLabel = ({ children, required: isRequired = false }) => (
@@ -517,6 +603,13 @@ function Register() {
             </fieldset>
 
             <div className="mt-8 rounded-2xl border border-line bg-white/90 p-6 backdrop-blur-sm md:p-8">
+              {apiError && (
+                <div className="mb-6 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50/90 p-4 text-sm font-medium text-rose-700 animate-in fade-in slide-in-from-top-1 duration-200">
+                  <AlertCircle className="h-5 w-5 shrink-0 text-rose-600 mt-0.5" />
+                  <div className="flex-1">{apiError}</div>
+                </div>
+              )}
+
               {role === "supporter" ? (
                 <div className="grid gap-5 md:grid-cols-2">
                   <label className="block md:col-span-2">
@@ -977,13 +1070,21 @@ function Register() {
               <button
                 type="submit"
                 disabled={
+                  isSubmitting ||
                   !form.agree ||
                   !form.password ||
                   form.password !== form.confirmPassword
                 }
-                className="mt-7 w-full rounded-xl bg-leaf px-6 py-3.5 font-display text-base font-bold text-white transition-all hover:bg-leaf-deep disabled:cursor-not-allowed disabled:bg-leaf/40"
+                className="mt-7 w-full flex items-center justify-center gap-2 rounded-xl bg-leaf px-6 py-3.5 font-display text-base font-bold text-white transition-all hover:bg-leaf-deep disabled:cursor-not-allowed disabled:bg-leaf/40 cursor-pointer shadow-md shadow-leaf/20 hover:shadow-lg hover:shadow-leaf/35"
               >
-                Create account
+                {isSubmitting ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    <span>Creating account...</span>
+                  </>
+                ) : (
+                  <span>Create account</span>
+                )}
               </button>
 
               <p className="mt-5 text-center text-sm text-muted">
