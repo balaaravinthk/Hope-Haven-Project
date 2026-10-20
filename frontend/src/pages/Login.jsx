@@ -1,26 +1,57 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
 import logoBest from "../assets/logoisthebest.png";
+import { useAuth } from "../context/AuthContext";
 
 function Login() {
   const navigate = useNavigate();
+  const { login, loading, error: authError, setError } = useAuth();
+
   const [form, setForm] = useState({ email: "", password: "", remember: false });
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState("donor"); // 'donor', 'volunteer', 'orphanage'
+  const [role, setRole] = useState("donor"); // 'donor', 'orphanage'
+  const [errorMessage, setErrorMessage] = useState("");
 
   const updateField = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+    if (errorMessage) setErrorMessage("");
+    if (authError) setError(null);
   };
 
-  const handleSubmit = (event) => {
+  const handleRoleChange = (newRole) => {
+    setRole(newRole);
+    if (errorMessage) setErrorMessage("");
+    if (authError) setError(null);
+  };
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    if (role === "orphanage") {
-      navigate("/orphanage/dashboard");
-    } else {
-      navigate("/dashboard");
+    setErrorMessage("");
+
+    try {
+      // Map frontend tab role to backend enum ('supporter' or 'orphanage')
+      const targetRole = role === "orphanage" ? "orphanage" : "supporter";
+
+      const authData = await login({
+        email: form.email,
+        password: form.password,
+        role: targetRole,
+      });
+
+      // Navigate to appropriate dashboard based on authenticated user role
+      const assignedRole = authData?.user?.role || targetRole;
+      if (assignedRole === "orphanage") {
+        navigate("/orphanage/dashboard");
+      } else {
+        navigate("/dashboard");
+      }
+    } catch (err) {
+      setErrorMessage(err.message || "Failed to log in. Please check your credentials.");
     }
   };
+
+  const activeError = errorMessage || authError;
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-haven">
@@ -78,11 +109,11 @@ function Login() {
               {[
                 { id: "donor", label: "Donor / Volunteer" },
                 { id: "orphanage", label: "Orphanage" }
-              ].map(r => (
+              ].map((r) => (
                 <button
                   key={r.id}
                   type="button"
-                  onClick={() => setRole(r.id)}
+                  onClick={() => handleRoleChange(r.id)}
                   className={`flex-1 py-2.5 rounded-xl font-display text-sm font-bold transition-all duration-200 cursor-pointer active:scale-95 ${
                     role === r.id
                       ? "bg-navy text-white shadow-md shadow-navy/25 scale-[1.02]"
@@ -93,6 +124,14 @@ function Login() {
                 </button>
               ))}
             </div>
+
+            {/* Error Notification Alert */}
+            {activeError && (
+              <div className="mb-5 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50/90 p-4 text-sm font-medium text-rose-700 animate-in fade-in slide-in-from-top-1 duration-200">
+                <AlertCircle className="h-5 w-5 shrink-0 text-rose-600 mt-0.5" />
+                <div className="flex-1">{activeError}</div>
+              </div>
+            )}
 
             <div className="grid gap-5">
               <label className="block">
@@ -152,10 +191,19 @@ function Login() {
 
             <button
               type="submit"
-              disabled={!form.email || !form.password}
+              disabled={!form.email || !form.password || loading}
               className="group relative overflow-hidden mt-7 w-full rounded-xl bg-gradient-to-r from-leaf to-leaf-deep px-6 py-3.5 font-display text-base font-bold text-white shadow-md shadow-leaf/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-leaf/35 active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-leaf/40 disabled:hover:translate-y-0 disabled:shadow-none cursor-pointer"
             >
-              <span className="relative z-10">Log in</span>
+              <span className="relative z-10 flex items-center justify-center gap-2">
+                {loading ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span>Logging in...</span>
+                  </>
+                ) : (
+                  <span>Log in</span>
+                )}
+              </span>
               <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 ease-in-out group-hover:translate-x-full" />
             </button>
 
