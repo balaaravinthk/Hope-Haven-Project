@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { 
   Search, MapPin, Phone, AlertCircle, HeartHandshake, CreditCard,
   X, CheckCircle2, LayoutDashboard, User, LogOut, Award, Menu, Users,
-  RefreshCw, Inbox
+  RefreshCw, Inbox, Loader2, Calendar
 } from "lucide-react";
 import { formatInr, percent } from "./dashboard/shared";
 import logoBest from "../assets/logoisthebest.png";
@@ -40,6 +40,14 @@ export default function UserDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [donateModal, setDonateModal] = useState(null);
   const [volunteerModal, setVolunteerModal] = useState(null);
+  const [volunteerSkills, setVolunteerSkills] = useState("");
+  const [volunteerSchedule, setVolunteerSchedule] = useState("");
+  const [volunteerPhone, setVolunteerPhone] = useState("");
+  const [volunteerName, setVolunteerName] = useState("");
+  const [isVolunteering, setIsVolunteering] = useState(false);
+  const [volunteerError, setVolunteerError] = useState("");
+  const [volunteerSuccess, setVolunteerSuccess] = useState(false);
+
   const [donationAmount, setDonationAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("UPI / PhonePe");
   const [taxPan, setTaxPan] = useState("");
@@ -163,13 +171,75 @@ export default function UserDashboard() {
     }
   };
 
-  const handleVolunteerSubmit = (e) => {
+  const handleOpenVolunteerModal = (need) => {
+    setVolunteerModal(need);
+    setVolunteerSkills("");
+    setVolunteerSchedule("");
+    setVolunteerPhone(user?.phone || "");
+    setVolunteerName(user?.name || "");
+    setVolunteerError("");
+    setVolunteerSuccess(false);
+  };
+
+  const handleVolunteerSubmit = async (e) => {
     e.preventDefault();
-    setSuccess(true);
-    setTimeout(() => {
-      setSuccess(false);
-      setVolunteerModal(null);
-    }, 2500);
+    setVolunteerError("");
+
+    if (!volunteerSkills.trim()) {
+      setVolunteerError("Please specify your skills or expertise.");
+      return;
+    }
+    if (!volunteerSchedule.trim()) {
+      setVolunteerError("Please specify your available schedule.");
+      return;
+    }
+
+    try {
+      setIsVolunteering(true);
+      const targetOrphanageId =
+        volunteerModal.orphanage?._id ||
+        volunteerModal.orphanageId ||
+        volunteerModal.orphanage?.id ||
+        null;
+
+      const payload = {
+        orphanageId: targetOrphanageId,
+        requirementId: volunteerModal._id || volunteerModal.id,
+        roleTitle: volunteerModal.title || "Community Volunteer",
+        name: volunteerName.trim() || user?.name || "Volunteer Supporter",
+        email: user?.email || "supporter@hopehaven.org",
+        phone: volunteerPhone.trim(),
+        skills: volunteerSkills.trim(),
+        schedule: volunteerSchedule.trim(),
+      };
+
+      await api.post("/volunteers/apply", payload);
+
+      // Dynamically increment volunteers applied on this need card locally
+      if (volunteerModal._id || volunteerModal.id) {
+        setNeeds((prevNeeds) =>
+          prevNeeds.map((item) =>
+            item._id === volunteerModal._id || item.id === volunteerModal.id
+              ? { ...item, volunteersApplied: (item.volunteersApplied || 0) + 1 }
+              : item
+          )
+        );
+      }
+
+      setVolunteerSuccess(true);
+      setTimeout(() => {
+        setVolunteerSuccess(false);
+        setVolunteerModal(null);
+      }, 3000);
+    } catch (err) {
+      const msg =
+        err.response?.data?.message ||
+        err.message ||
+        "Failed to submit volunteer application.";
+      setVolunteerError(msg);
+    } finally {
+      setIsVolunteering(false);
+    }
   };
 
   const handleLogout = () => {
@@ -346,7 +416,7 @@ export default function UserDashboard() {
                   <div className="mt-5 space-y-2.5">
                     {need.type === 'volunteer' ? (
                       <button 
-                        onClick={() => setVolunteerModal(need)} 
+                        onClick={() => handleOpenVolunteerModal(need)} 
                         className="group relative overflow-hidden w-full flex items-center justify-center gap-2 bg-navy hover:bg-navy-deep hover:shadow-lg hover:shadow-navy/30 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] text-white font-display font-bold text-sm py-2.5 rounded-xl transition-all duration-200 cursor-pointer"
                       >
                         <Users size={16} className="transition-transform duration-200 group-hover:scale-110" />
@@ -761,35 +831,115 @@ export default function UserDashboard() {
       {volunteerModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm">
           <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl animate-rise relative">
-            <button onClick={() => { setVolunteerModal(null); setSuccess(false); }} className="absolute top-4 right-4 text-muted hover:text-navy cursor-pointer">
+            <button
+              onClick={() => {
+                setVolunteerModal(null);
+                setVolunteerSuccess(false);
+                setVolunteerError("");
+              }}
+              className="absolute top-4 right-4 text-muted hover:text-navy cursor-pointer"
+            >
               <X size={20} />
             </button>
-            {success ? (
+            {volunteerSuccess ? (
               <div className="text-center py-8">
-                <div className="w-16 h-16 bg-leaf-soft text-leaf rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="w-16 h-16 bg-leaf-soft text-leaf rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
                   <CheckCircle2 size={32} />
                 </div>
                 <h3 className="font-display text-2xl font-bold text-navy">Application Sent!</h3>
-                <p className="text-muted mt-2">The orphanage has received your request to volunteer.</p>
+                <p className="text-muted mt-2 text-sm">
+                  The orphanage has received your application with your skills and schedule.
+                </p>
+                <div className="mt-4 p-3 rounded-xl bg-mist/60 border border-line text-xs text-navy font-semibold">
+                  Thank you for stepping up to make a meaningful difference!
+                </div>
               </div>
             ) : (
               <>
                 <h3 className="font-display text-xl font-bold text-navy mb-1">Apply to Volunteer</h3>
-                <p className="text-sm text-muted mb-6">
+                <p className="text-sm text-muted mb-4">
                   Role: <strong className="text-navy">{volunteerModal.title}</strong> at {volunteerModal.orphanage?.name || "Hope Children's Home"}
                 </p>
+
+                {volunteerError && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
+                    <AlertCircle size={16} className="shrink-0" />
+                    <span>{volunteerError}</span>
+                  </div>
+                )}
+
                 <form onSubmit={handleVolunteerSubmit} className="space-y-4">
-                  <p className="text-sm text-ink">{volunteerModal.description}</p>
-                  <label className="block mt-4">
-                    <span className="block text-xs font-bold text-navy mb-1.5">Availability</span>
-                    <input type="text" required placeholder="e.g. Weekends only, anytime" className="w-full border border-line bg-mist/30 rounded-xl px-4 py-3 text-sm focus:border-leaf outline-none" />
-                  </label>
-                  <label className="block">
-                    <span className="block text-xs font-bold text-navy mb-1.5">Contact Number</span>
-                    <input type="text" required placeholder="+91" className="w-full border border-line bg-mist/30 rounded-xl px-4 py-3 text-sm focus:border-leaf outline-none" />
-                  </label>
-                  <button type="submit" className="w-full mt-2 flex items-center justify-center gap-2 bg-navy hover:bg-navy/80 text-white font-display font-bold py-3 rounded-xl transition-colors cursor-pointer">
-                    <Users size={18} /> Send Application
+                  {volunteerModal.description && (
+                    <p className="text-xs text-ink/80 bg-mist/40 p-2.5 rounded-lg border border-line">
+                      {volunteerModal.description}
+                    </p>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-bold text-navy mb-1.5">
+                      Skills & Experience <span className="text-heart">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={volunteerSkills}
+                      onChange={(e) => setVolunteerSkills(e.target.value)}
+                      placeholder="e.g. Teaching Math, Art & Crafts, Sports Coaching"
+                      className="w-full border border-line bg-mist/30 rounded-xl px-4 py-2.5 text-sm focus:border-leaf outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-navy mb-1.5">
+                      Available Schedule <span className="text-heart">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={volunteerSchedule}
+                      onChange={(e) => setVolunteerSchedule(e.target.value)}
+                      placeholder="e.g. Weekends only, Saturday afternoons, 4 hrs/week"
+                      className="w-full border border-line bg-mist/30 rounded-xl px-4 py-2.5 text-sm focus:border-leaf outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-navy mb-1.5">Full Name</label>
+                      <input
+                        type="text"
+                        value={volunteerName}
+                        onChange={(e) => setVolunteerName(e.target.value)}
+                        placeholder="Your full name"
+                        className="w-full border border-line bg-mist/30 rounded-xl px-3 py-2 text-sm focus:border-leaf outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-navy mb-1.5">Contact Number</label>
+                      <input
+                        type="text"
+                        value={volunteerPhone}
+                        onChange={(e) => setVolunteerPhone(e.target.value)}
+                        placeholder="+91 98765 43210"
+                        className="w-full border border-line bg-mist/30 rounded-xl px-3 py-2 text-sm focus:border-leaf outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isVolunteering}
+                    className="w-full mt-2 flex items-center justify-center gap-2 bg-navy hover:bg-navy-deep text-white font-display font-bold py-3 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {isVolunteering ? (
+                      <>
+                        <Loader2 size={18} className="animate-spin" /> Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <Users size={18} /> Submit Volunteer Application
+                      </>
+                    )}
                   </button>
                 </form>
               </>

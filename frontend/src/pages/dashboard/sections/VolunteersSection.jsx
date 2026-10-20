@@ -1,8 +1,8 @@
-import { Plus, Clock } from "lucide-react";
+import { Plus, Clock, Check, X, UserCheck, Calendar, Phone, Mail } from "lucide-react";
 import { StatusBadge } from "../shared";
 import { upcomingActivities } from "../constants";
 
-export default function VolunteersSection({ volunteers, volunteerRequests, volunteerRoles, setVolunteerStatus, setShowRoleModal }) {
+export default function VolunteersSection({ volunteers = [], volunteerRequests = 0, volunteerRoles = [], setVolunteerStatus, setShowRoleModal }) {
   return (
     <div className="space-y-8 animate-rise">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -10,7 +10,7 @@ export default function VolunteersSection({ volunteers, volunteerRequests, volun
           <h1 className="font-display text-3xl font-extrabold text-navy">Volunteers</h1>
           <p className="mt-1 text-sm text-muted">Review volunteer applications, manage upcoming activities, and define volunteer needs.</p>
         </div>
-        <button type="button" onClick={() => setShowRoleModal(true)} className="inline-flex items-center gap-2 rounded-xl bg-leaf px-4 py-2.5 font-display text-sm font-bold text-white shadow-xs transition-colors hover:bg-leaf-deep"><Plus size={16} /> Post Volunteer Need</button>
+        <button type="button" onClick={() => setShowRoleModal(true)} className="inline-flex items-center gap-2 rounded-xl bg-leaf px-4 py-2.5 font-display text-sm font-bold text-white shadow-xs transition-colors hover:bg-leaf-deep cursor-pointer"><Plus size={16} /> Post Volunteer Need</button>
       </div>
 
       {/* Volunteer Applications */}
@@ -19,30 +19,84 @@ export default function VolunteersSection({ volunteers, volunteerRequests, volun
           <h2 className="font-display text-xl font-bold text-navy">Volunteer Applications ({volunteers.length})</h2>
           <span className="text-xs font-semibold text-muted">{volunteerRequests} pending review</span>
         </div>
-        <div className="space-y-3">
-          {volunteers.map((v) => (
-            <article key={v.id} className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-line bg-white p-5 shadow-xs">
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <p className="font-display text-lg font-bold text-navy">{v.name}</p>
-                  <StatusBadge status={v.status} />
-                </div>
-                <p className="mt-1 text-sm text-ink font-medium">Skill: <span className="text-leaf-deep font-semibold">{v.skill}</span></p>
-                <p className="mt-0.5 text-xs text-muted">Applied: {v.date} · Contact: {v.phone} ({v.email})</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {v.status === "pending" ? (
-                  <>
-                    <button type="button" onClick={() => setVolunteerStatus(v.id, "accepted")} className="rounded-xl bg-leaf px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-leaf-deep">Accept</button>
-                    <button type="button" onClick={() => setVolunteerStatus(v.id, "rejected")} className="rounded-xl border border-heart/25 px-4 py-2 text-xs font-bold text-heart transition-colors hover:bg-red-50">Reject</button>
-                  </>
-                ) : (
-                  <button type="button" onClick={() => setVolunteerStatus(v.id, "pending")} className="rounded-xl border border-line px-3 py-1.5 text-xs font-semibold text-muted hover:text-navy">Reset status</button>
-                )}
-              </div>
-            </article>
-          ))}
-        </div>
+
+        {volunteers.length === 0 ? (
+          <div className="rounded-2xl border border-line bg-white p-8 text-center text-muted">
+            <UserCheck size={36} className="mx-auto mb-2 text-muted/60" />
+            <p className="font-semibold text-navy">No volunteer applications yet</p>
+            <p className="text-xs mt-1">Applications submitted by supporters will appear here for your review.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {volunteers.map((v) => {
+              const appId = v._id || v.id;
+              const skillText = v.skills || v.skill || "General Support";
+              const scheduleText = v.schedule || v.availability;
+              const appliedDate = v.date || (v.createdAt ? new Date(v.createdAt).toLocaleDateString() : "Recent");
+
+              return (
+                <article key={appId} className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-line bg-white p-5 shadow-xs transition-shadow hover:shadow-sm">
+                  <div>
+                    <div className="flex items-center gap-2.5">
+                      <p className="font-display text-lg font-bold text-navy">{v.name}</p>
+                      <StatusBadge status={v.status} />
+                    </div>
+                    <p className="mt-1 text-sm text-ink font-medium">
+                      Skills: <span className="text-leaf-deep font-semibold">{skillText}</span>
+                    </p>
+                    {scheduleText && (
+                      <p className="mt-0.5 text-xs text-navy/80 flex items-center gap-1.5 font-medium">
+                        <Calendar size={13} className="text-muted shrink-0" />
+                        <span>Schedule: <strong>{scheduleText}</strong></span>
+                      </p>
+                    )}
+                    <p className="mt-1 text-xs text-muted flex flex-wrap items-center gap-3">
+                      <span>Applied: {appliedDate}</span>
+                      {v.phone && (
+                        <span className="inline-flex items-center gap-1">
+                          <Phone size={12} className="text-muted/80" /> {v.phone}
+                        </span>
+                      )}
+                      {v.email && (
+                        <span className="inline-flex items-center gap-1">
+                          <Mail size={12} className="text-muted/80" /> {v.email}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {v.status === "pending" ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setVolunteerStatus(appId, "approved")}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-leaf px-4 py-2 text-xs font-bold text-white transition-all shadow-xs hover:bg-leaf-deep hover:shadow-md cursor-pointer"
+                        >
+                          <Check size={14} /> Approve
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setVolunteerStatus(appId, "declined")}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-heart/30 bg-red-50/50 px-4 py-2 text-xs font-bold text-heart transition-all hover:bg-red-100/60 cursor-pointer"
+                        >
+                          <X size={14} /> Decline
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setVolunteerStatus(appId, "pending")}
+                        className="rounded-xl border border-line px-3 py-1.5 text-xs font-semibold text-muted hover:text-navy hover:bg-mist/40 transition-colors cursor-pointer"
+                      >
+                        Reset status
+                      </button>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Upcoming Activities & Volunteer Roles */}
@@ -67,7 +121,7 @@ export default function VolunteersSection({ volunteers, volunteerRequests, volun
         <div className="rounded-2xl border border-line bg-white p-6 shadow-xs">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-lg font-bold text-navy">Manage Volunteer Roles</h2>
-            <button type="button" onClick={() => setShowRoleModal(true)} className="inline-flex items-center gap-1 text-xs font-bold text-leaf hover:text-leaf-deep"><Plus size={14} /> Add Role</button>
+            <button type="button" onClick={() => setShowRoleModal(true)} className="inline-flex items-center gap-1 text-xs font-bold text-leaf hover:text-leaf-deep cursor-pointer"><Plus size={14} /> Add Role</button>
           </div>
           <div className="mt-4 space-y-3">
             {volunteerRoles.map((role) => (

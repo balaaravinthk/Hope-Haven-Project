@@ -120,10 +120,23 @@ function OrphanageDashboard() {
     }
   };
 
+  // Load live volunteer applications from GET /api/volunteers/orphanage
+  const fetchLiveVolunteers = async () => {
+    try {
+      const res = await api.get("/volunteers/orphanage");
+      if (res.data?.data && Array.isArray(res.data.data)) {
+        setVolunteers(res.data.data);
+      }
+    } catch (err) {
+      console.warn("Could not load live volunteer applications:", err.message);
+    }
+  };
+
   useEffect(() => {
     fetchLiveProfile();
     fetchLiveRequirements();
     fetchLiveDonations();
+    fetchLiveVolunteers();
   }, []);
 
   // Key totals
@@ -201,10 +214,30 @@ function OrphanageDashboard() {
   };
 
   // ── Volunteer Actions ────────────────────────────────────────────────
-  const setVolunteerStatus = (id, newStatus) => {
-    setVolunteers((prev) => prev.map((v) => (v.id === id ? { ...v, status: newStatus } : v)));
-    const vol = volunteers.find((v) => v.id === id);
-    if (vol) setNotifications((prev) => [{ id: Date.now(), title: `Volunteer application ${newStatus}`, text: `Application for ${vol.name} was marked as ${newStatus}.`, time: "Just now", type: "volunteer", read: false }, ...prev]);
+  const setVolunteerStatus = async (id, newStatus) => {
+    setVolunteers((prev) =>
+      prev.map((v) => ((v.id === id || v._id === id) ? { ...v, status: newStatus } : v))
+    );
+    const vol = volunteers.find((v) => v.id === id || v._id === id);
+    if (vol) {
+      setNotifications((prev) => [
+        {
+          id: Date.now(),
+          title: `Volunteer application ${newStatus}`,
+          text: `Application for ${vol.name} was marked as ${newStatus}.`,
+          time: "Just now",
+          type: "volunteer",
+          read: false,
+        },
+        ...prev,
+      ]);
+    }
+
+    try {
+      await api.patch(`/volunteers/applications/${id}/status`, { status: newStatus });
+    } catch (err) {
+      console.warn("Could not persist volunteer status on backend:", err.message);
+    }
   };
 
   const handleSaveVolunteerRole = (e) => {
