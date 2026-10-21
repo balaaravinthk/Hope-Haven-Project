@@ -2,57 +2,10 @@ import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
 import { sendSuccess, sendError } from '../utils/apiResponse.js';
 import { VolunteerApplication, ApplicationStatus } from '../models/VolunteerApplication.js';
+import { VolunteerRole } from '../models/VolunteerRole.js';
 import { Orphanage } from '../models/Orphanage.js';
 import { Requirement } from '../models/Requirement.js';
 import { User } from '../models/User.js';
-
-let volunteerRoles = [
-  { id: 1, roleTitle: 'Weekend Math & English Tutor', needed: 4, filled: 2, days: 'Saturdays & Sundays', status: 'Open' },
-  { id: 2, roleTitle: 'Art & Craft Workshop Lead', needed: 2, filled: 2, days: 'Every 2nd Saturday', status: 'Filled' },
-  { id: 3, roleTitle: 'Sports & Physical Activity Coach', needed: 3, filled: 1, days: 'Sunday Evenings', status: 'Open' },
-];
-
-/**
- * Seed initial volunteer applications into MongoDB if empty
- */
-const ensureSeedVolunteers = async () => {
-  try {
-    const count = await VolunteerApplication.countDocuments();
-    if (count > 0) return;
-
-    const defaultOrp = await Orphanage.findOne();
-    const seedApps = [
-      {
-        orphanageId: defaultOrp?._id || null,
-        name: 'Anitha R.',
-        skill: 'Teaching — weekends',
-        skills: 'Teaching — weekends',
-        schedule: 'Saturdays & Sundays',
-        availability: 'Saturdays & Sundays',
-        email: 'anitha.r@gmail.com',
-        phone: '+91 98450 12345',
-        status: 'pending',
-        date: '2026-10-15',
-      },
-      {
-        orphanageId: defaultOrp?._id || null,
-        name: 'Vikram S.',
-        skill: 'Sports & Yoga',
-        skills: 'Sports & Yoga',
-        schedule: 'Sunday Evenings',
-        availability: 'Sunday Evenings',
-        email: 'vikram.s@outlook.com',
-        phone: '+91 97890 65432',
-        status: 'approved',
-        date: '2026-10-11',
-      },
-    ];
-
-    await VolunteerApplication.insertMany(seedApps);
-  } catch (err) {
-    // Non-blocking notice for seed setup
-  }
-};
 
 /**
  * Safely extract authenticated user from token if present
@@ -165,7 +118,6 @@ export const applyVolunteer = async (req, res, next) => {
  */
 export const getOrphanageApplications = async (req, res, next) => {
   try {
-    await ensureSeedVolunteers();
     const authenticatedUser = await extractUserSafely(req);
 
     let filter = {};
@@ -174,26 +126,18 @@ export const getOrphanageApplications = async (req, res, next) => {
       filter.orphanageId = req.query.orphanageId;
     } else if (authenticatedUser) {
       // Find orphanage associated with this user
-      const orphanage = await Orphanage.findOne({ adminUserId: authenticatedUser._id });
+      const orphanage = await Orphanage.findOne({
+        $or: [{ userId: authenticatedUser._id }, { email: authenticatedUser.email }]
+      });
       if (orphanage) {
         filter.orphanageId = orphanage._id;
-      } else if (authenticatedUser.orphanageId) {
-        filter.orphanageId = authenticatedUser.orphanageId;
       }
     }
 
-    let applications = await VolunteerApplication.find(filter)
+    const applications = await VolunteerApplication.find(filter)
       .populate('orphanageId', 'name location email phone')
       .populate('requirementId', 'title category')
       .sort({ createdAt: -1 });
-
-    // If filter produced no results but database has applications, provide all
-    if (applications.length === 0 && Object.keys(filter).length > 0) {
-      applications = await VolunteerApplication.find({})
-        .populate('orphanageId', 'name location email phone')
-        .populate('requirementId', 'title category')
-        .sort({ createdAt: -1 });
-    }
 
     return sendSuccess(res, 'Orphanage volunteer applications retrieved', applications);
   } catch (error) {
@@ -259,7 +203,12 @@ export const updateApplicationStatus = async (req, res, next) => {
 
 export const getRoles = async (req, res, next) => {
   try {
-    return sendSuccess(res, 'Volunteer roles retrieved', volunteerRoles);
+    const filter = {};
+    if (req.query.orphanageId) {
+      filter.orphanageId = req.query.orphanageId;
+    }
+    const roles = await VolunteerRole.find(filter).sort({ createdAt: -1 });
+    return sendSuccess(res, 'Volunteer roles retrieved', roles);
   } catch (error) {
     next(error);
   }
@@ -267,16 +216,26 @@ export const getRoles = async (req, res, next) => {
 
 export const createRole = async (req, res, next) => {
   try {
-    const { roleTitle, needed, days } = req.body;
-    const newRole = {
-      id: volunteerRoles.length + 1,
-      roleTitle,
-      needed: Number(needed),
+    const { roleTitle, needed, days, orphanageId } = req.body;
+    const authenticatedUser = await extractUserSafely(req);
+
+    let resolvedOrphanageId = orphanageId;
+    if (!resolvedOrphanageId && authenticatedUser) {
+      const orphanage = await Orphanage.findOne({
+        $or: [{ userId: authenticatedUser._id }, { email: authenticatedUser.email }]
+      });
+      if (orphanage) resolvedOrphanageId = orphanage._id;
+    }
+
+    const newRole = await VolunteerRole.create({
+      orphanageId: resolvedOrphanageId || null,
+      roleTitle: (roleTitle || '').trim(),
+      needed: Number(needed) || 1,
       filled: 0,
-      days,
+      days: (days || 'Weekends').trim(),
       status: 'Open',
-    };
-    volunteerRoles.push(newRole);
+    });
+
     return sendSuccess(res, 'Volunteer role created', newRole, 201);
   } catch (error) {
     next(error);

@@ -71,30 +71,38 @@ export const getProfile = async (req, res, next) => {
       orphanage = await Orphanage.findOne({ email: req.user.email });
     }
 
-    // 3. Fallback to first orphanage in DB (or create demo default)
+    // 3. If query param specified (e.g. ?id=...)
+    if (!orphanage && req.query.id) {
+      orphanage = await Orphanage.findById(req.query.id);
+    }
+
+    // 4. If logged in but no orphanage profile exists yet, create one tied to this real user
+    if (!orphanage && req.user) {
+      orphanage = await Orphanage.create({
+        userId: req.user._id,
+        name: req.user.name || "My Organization",
+        type: "Children's Home / CCI",
+        address: "Address pending registration",
+        contact: req.user.phone || "+91 00000 00000",
+        email: req.user.email,
+        registrationNumber: `PENDING-${Date.now().toString().slice(-6)}`,
+        pan: "PENDING000",
+        cciJj: "PENDING",
+        authorizedPerson: req.user.name || "Authorized Representative",
+        aadhaarNumberMasked: "XXXX XXXX 0000",
+        verificationStatus: VerificationStatus.PENDING,
+        verifiedBadge: false,
+        documents: [],
+      });
+    }
+
+    // 5. Fallback for public viewing when no user logged in
     if (!orphanage) {
       orphanage = await Orphanage.findOne();
     }
 
     if (!orphanage) {
-      orphanage = await Orphanage.create({
-        name: "Hope Children's Home",
-        type: "Children's Home / CCI",
-        address: "12, Green Park Road, Saravanampatti, Coimbatore, Tamil Nadu 641035",
-        city: "Coimbatore",
-        state: "Tamil Nadu",
-        contact: "+91 98765 43210",
-        email: req.user?.email || "hopechildren@hopehaven.org",
-        registrationNumber: "TN/CBE/2018/00492",
-        pan: "AAATH1234F",
-        cciJj: "JJ-ACT-2015-CCI-8842",
-        authorizedPerson: "Dr. Revathi Sundaram",
-        aadhaarNumberMasked: "XXXX XXXX 1234",
-        aadhaarVerified: true,
-        verificationStatus: VerificationStatus.APPROVED,
-        verifiedBadge: true,
-        documents: ["Registration_Certificate_2018.pdf", "JJ_Act_Compliance_Approval.pdf", "FCRA_Tax_Exemption_80G.pdf"],
-      });
+      return sendError(res, 'No orphanage profile found', null, 404);
     }
 
     return sendSuccess(res, 'Profile fetched successfully', orphanage);
@@ -174,11 +182,15 @@ export const getMyRequirements = async (req, res, next) => {
       });
     }
 
-    if (!orphanage) {
+    if (!orphanage && req.query.orphanageId) {
+      orphanage = await Orphanage.findById(req.query.orphanageId);
+    }
+
+    if (!orphanage && !req.user) {
       orphanage = await Orphanage.findOne();
     }
 
-    const query = orphanage ? { orphanageId: orphanage._id } : {};
+    const query = orphanage ? { orphanageId: orphanage._id } : { _id: null };
     const requirements = await Requirement.find(query).sort({ createdAt: -1 }).lean();
 
     const formatted = requirements.map((r) => {

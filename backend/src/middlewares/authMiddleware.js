@@ -76,4 +76,30 @@ export const authenticate = async (req, res, next) => {
   }
 };
 
+/**
+ * Optional authentication: hydrates req.user if a valid token is present,
+ * but allows unauthenticated requests to proceed.
+ */
+export const optionalAuthenticate = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return next();
+  }
+
+  const token = authHeader.split(' ')[1];
+  if (!token) return next();
+
+  try {
+    const decoded = jwt.verify(token, env.JWT_SECRET);
+    const user = await User.findById(decoded.id).select('-password');
+    if (user) {
+      req.user = user;
+    }
+  } catch {
+    // Ignore invalid/expired token in optional auth
+  }
+
+  next();
+};
+
 export default authenticate;

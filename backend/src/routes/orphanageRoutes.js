@@ -6,16 +6,17 @@ import {
   getMyRequirements,
 } from '../controllers/orphanageController.js';
 import { upload } from '../middlewares/uploadMiddleware.js';
+import { optionalAuthenticate } from '../middlewares/authMiddleware.js';
 
 const router = Router();
 
-// Institutional Profile Endpoints
-router.get('/me', getProfile);
-router.put('/me', updateProfile);
-router.get('/me/requirements', getMyRequirements);
+// Institutional Profile Endpoints (hydrates req.user if Bearer token present)
+router.get('/me', optionalAuthenticate, getProfile);
+router.put('/me', optionalAuthenticate, updateProfile);
+router.get('/me/requirements', optionalAuthenticate, getMyRequirements);
 
-router.get('/profile', getProfile);
-router.put('/profile', updateProfile);
+router.get('/profile', optionalAuthenticate, getProfile);
+router.put('/profile', optionalAuthenticate, updateProfile);
 
 router.post(
   '/register',

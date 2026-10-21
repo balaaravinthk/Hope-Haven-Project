@@ -60,6 +60,17 @@ export default function UserDashboard() {
   const [mobileNav, setMobileNav] = useState(false);
   const [hideImpact, setHideImpact] = useState(false);
 
+  const [userImpact, setUserImpact] = useState({
+    totalDonated: 0,
+    hoursVolunteered: 0,
+    livesTouched: 0,
+    goldenTrophies: 0,
+    silverTrophies: 0,
+    bronzeTrophies: 0,
+    rank: "Supporter Member",
+    trophies: [],
+  });
+
   // Fetch requirements from backend API
   const fetchRequirements = async () => {
     try {
@@ -75,8 +86,21 @@ export default function UserDashboard() {
     }
   };
 
+  // Fetch live supporter impact stats from MongoDB via GET /api/users/impact
+  const fetchUserImpact = async () => {
+    try {
+      const res = await api.get("/users/impact");
+      if (res.data?.data) {
+        setUserImpact(res.data.data);
+      }
+    } catch (err) {
+      console.warn("Could not load user impact stats:", err.message);
+    }
+  };
+
   useEffect(() => {
     fetchRequirements();
+    fetchUserImpact();
   }, []);
 
   // Compute filtered and urgency-sorted needs
@@ -163,6 +187,7 @@ export default function UserDashboard() {
       );
 
       setSuccess(true);
+      fetchUserImpact();
     } catch (err) {
       const msg = err.response?.data?.message || err.message || "Failed to process donation.";
       setDonateError(msg);
@@ -353,9 +378,9 @@ export default function UserDashboard() {
               ? Math.round(((need.volunteersApplied || 0) / (need.volunteersNeeded || 1)) * 100)
               : percent(need.amountRaised, need.amountNeeded);
 
-            const orphanageName = need.orphanage?.name || "Hope Children's Home";
-            const orphanageAddress = need.orphanage?.address || "Tamil Nadu, India";
-            const orphanageContact = need.orphanage?.contact || "+91 98765 43210";
+            const orphanageName = need.orphanage?.name || "Orphanage Partner";
+            const orphanageAddress = need.orphanage?.address || (need.orphanage?.city ? `${need.orphanage.city}, India` : "Location specified on file");
+            const orphanageContact = need.orphanage?.contact || "Verified on portal";
             const isVerified = need.orphanage?.verified !== false;
 
             return (
@@ -467,9 +492,8 @@ export default function UserDashboard() {
   );
 
   const renderProfile = () => {
-    const profileName = user?.name || "Demo Supporter";
-    const profileEmail = user?.email || "supporter@hopehaven.org";
-    const userImpact = user?.impact || { totalDonated: 12500, hoursVolunteered: 24, livesTouched: 15 };
+    const profileName = user?.name || "Supporter Member";
+    const profileEmail = user?.email || "";
 
     return (
       <div className="animate-rise max-w-4xl mx-auto space-y-8">
@@ -507,21 +531,21 @@ export default function UserDashboard() {
               <div className="bg-leaf-soft border border-leaf/30 rounded-xl p-4 text-center">
                 <HeartHandshake size={24} className="mx-auto text-leaf mb-2" />
                 <p className="text-2xl font-display font-extrabold text-navy">
-                  {hideImpact ? "***" : formatInr(userImpact.totalDonated || userImpact.donations || 12500)}
+                  {hideImpact ? "***" : formatInr(userImpact.totalDonated || 0)}
                 </p>
                 <p className="text-xs font-bold text-leaf-deep mt-1">Donated</p>
               </div>
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
                 <Users size={24} className="mx-auto text-blue-500 mb-2" />
                 <p className="text-2xl font-display font-extrabold text-navy">
-                  {hideImpact ? "***" : `${userImpact.hoursVolunteered || userImpact.volunteerHours || 24}h`}
+                  {hideImpact ? "***" : `${userImpact.hoursVolunteered || 0}h`}
                 </p>
                 <p className="text-xs font-bold text-blue-700 mt-1">Volunteered</p>
               </div>
               <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 text-center">
                 <AlertCircle size={24} className="mx-auto text-orange-500 mb-2" />
                 <p className="text-2xl font-display font-extrabold text-navy">
-                  {hideImpact ? "***" : (userImpact.livesTouched || 15)}
+                  {hideImpact ? "***" : (userImpact.livesTouched || 0)}
                 </p>
                 <p className="text-xs font-bold text-orange-700 mt-1">Lives Touched</p>
               </div>
@@ -539,7 +563,7 @@ export default function UserDashboard() {
               <div className="relative">
                 <Award size={64} className="text-yellow-400 drop-shadow-md" />
                 <div className="absolute -bottom-2 -right-2 bg-navy text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-white">
-                  2
+                  {userImpact.goldenTrophies || 0}
                 </div>
               </div>
               <h4 className="font-display font-bold text-navy mt-4">Golden Trophy</h4>
@@ -550,7 +574,7 @@ export default function UserDashboard() {
               <div className="relative">
                 <Award size={64} className="text-gray-300 drop-shadow-md" />
                 <div className="absolute -bottom-2 -right-2 bg-navy text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-white">
-                  5
+                  {userImpact.silverTrophies || 0}
                 </div>
               </div>
               <h4 className="font-display font-bold text-navy mt-4">Silver Trophy</h4>
@@ -561,7 +585,7 @@ export default function UserDashboard() {
               <div className="relative">
                 <Award size={64} className="text-amber-600 drop-shadow-md" />
                 <div className="absolute -bottom-2 -right-2 bg-navy text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-white">
-                  8
+                  {userImpact.bronzeTrophies || 0}
                 </div>
               </div>
               <h4 className="font-display font-bold text-navy mt-4">Bronze Trophy</h4>

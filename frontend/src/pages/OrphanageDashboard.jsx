@@ -5,7 +5,7 @@ import logoBest from "../assets/logoisthebest.png";
 import api from "../services/api";
 
 // Data & shared
-import { DEFAULT_PROFILE, navItems, initialRequirements, initialDonations, initialVolunteers, initialVolunteerRoles, initialNotifications } from "./dashboard/constants";
+import { DEFAULT_PROFILE, navItems } from "./dashboard/constants";
 import { StatusBadge, formatInr } from "./dashboard/shared";
 
 // Sections
@@ -28,13 +28,13 @@ function OrphanageDashboard() {
   const [section, setSection] = useState("dashboard");
   const [mobileNav, setMobileNav] = useState(false);
 
-  // Profile loaded from localStorage if registered earlier
+  // Profile loaded from localStorage if registered earlier, else clean empty state
   const [profile, setProfile] = useState(() => {
     try {
       const saved = localStorage.getItem("orphanageProfile");
       if (saved) {
         const parsed = JSON.parse(saved);
-        return { ...DEFAULT_PROFILE, ...parsed, documents: DEFAULT_PROFILE.documents };
+        return { ...DEFAULT_PROFILE, ...parsed };
       }
     } catch (e) {
       console.warn("Could not load saved orphanage profile", e);
@@ -42,27 +42,27 @@ function OrphanageDashboard() {
     return DEFAULT_PROFILE;
   });
 
-  const [verificationStatus, setVerificationStatus] = useState(profile.verificationStatus || "Pending");
+  const [verificationStatus, setVerificationStatus] = useState("Pending");
 
-  // Requirements state
-  const [requirements, setRequirements] = useState(initialRequirements);
+  // Requirements state — strictly initialized to empty
+  const [requirements, setRequirements] = useState([]);
   const [reqFilter, setReqFilter] = useState("all");
   const [showReqModal, setShowReqModal] = useState(false);
   const [editingReqId, setEditingReqId] = useState(null);
   const [reqForm, setReqForm] = useState({ title: "", category: "Food & Nutrition", amountNeeded: "" });
 
-  // Donations state
-  const [donations, setDonations] = useState(initialDonations);
+  // Donations state — strictly initialized to empty
+  const [donations, setDonations] = useState([]);
   const [activeReceipt, setActiveReceipt] = useState(null);
 
-  // Volunteers state
-  const [volunteers, setVolunteers] = useState(initialVolunteers);
-  const [volunteerRoles, setVolunteerRoles] = useState(initialVolunteerRoles);
+  // Volunteers state — strictly initialized to empty
+  const [volunteers, setVolunteers] = useState([]);
+  const [volunteerRoles, setVolunteerRoles] = useState([]);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [roleForm, setRoleForm] = useState({ roleTitle: "", needed: "1", days: "Weekends" });
 
-  // Notifications state
-  const [notifications, setNotifications] = useState(initialNotifications);
+  // Notifications state — dynamically derived from real activity
+  const [notifications, setNotifications] = useState([]);
 
   // Settings state
   const [settings, setSettings] = useState({ publicVisible: true, allowAnonymous: true, emailOnDonation: true, emailOnVolunteer: true, weeklyDigest: false });
@@ -87,10 +87,12 @@ function OrphanageDashboard() {
         if (liveProfile.verificationStatus) {
           setVerificationStatus(liveProfile.verificationStatus);
         }
+        return liveProfile;
       }
     } catch (err) {
       console.warn("Could not load live orphanage profile:", err.message);
     }
+    return null;
   };
 
   // Load live requirements from GET /api/orphanages/me/requirements
@@ -100,47 +102,110 @@ function OrphanageDashboard() {
       const res = await api.get("/orphanages/me/requirements");
       if (res.data?.data && Array.isArray(res.data.data)) {
         setRequirements(res.data.data);
+      } else {
+        setRequirements([]);
       }
     } catch (err) {
       console.warn("Could not load live orphanage requirements:", err.message);
+      setRequirements([]);
     } finally {
       setLoadingData(false);
     }
   };
 
-  // Load live donations ledger from GET /api/donations
-  const fetchLiveDonations = async () => {
+  // Load live donations ledger for this specific orphanage
+  const fetchLiveDonations = async (orphId) => {
     try {
-      const res = await api.get("/donations");
+      const targetId = orphId || profile._id || profile.id;
+      const url = targetId ? `/donations?orphanageId=${targetId}` : "/donations";
+      const res = await api.get(url);
       if (res.data?.data && Array.isArray(res.data.data)) {
         setDonations(res.data.data);
+      } else {
+        setDonations([]);
       }
     } catch (err) {
       console.warn("Could not load live donations:", err.message);
+      setDonations([]);
     }
   };
 
-  // Load live volunteer applications from GET /api/volunteers/orphanage
-  const fetchLiveVolunteers = async () => {
+  // Load live volunteer applications for this orphanage
+  const fetchLiveVolunteers = async (orphId) => {
     try {
-      const res = await api.get("/volunteers/orphanage");
+      const targetId = orphId || profile._id || profile.id;
+      const url = targetId ? `/volunteers/orphanage?orphanageId=${targetId}` : "/volunteers/orphanage";
+      const res = await api.get(url);
       if (res.data?.data && Array.isArray(res.data.data)) {
         setVolunteers(res.data.data);
+      } else {
+        setVolunteers([]);
       }
     } catch (err) {
       console.warn("Could not load live volunteer applications:", err.message);
+      setVolunteers([]);
+    }
+  };
+
+  // Load live volunteer roles for this orphanage
+  const fetchLiveVolunteerRoles = async (orphId) => {
+    try {
+      const targetId = orphId || profile._id || profile.id;
+      const url = targetId ? `/volunteers/roles?orphanageId=${targetId}` : "/volunteers/roles";
+      const res = await api.get(url);
+      if (res.data?.data && Array.isArray(res.data.data)) {
+        setVolunteerRoles(res.data.data);
+      } else {
+        setVolunteerRoles([]);
+      }
+    } catch (err) {
+      console.warn("Could not load live volunteer roles:", err.message);
+      setVolunteerRoles([]);
     }
   };
 
   useEffect(() => {
-    fetchLiveProfile();
-    fetchLiveRequirements();
-    fetchLiveDonations();
-    fetchLiveVolunteers();
+    const init = async () => {
+      const liveProfile = await fetchLiveProfile();
+      const orphId = liveProfile?._id || liveProfile?.id;
+      fetchLiveRequirements();
+      fetchLiveDonations(orphId);
+      fetchLiveVolunteers(orphId);
+      fetchLiveVolunteerRoles(orphId);
+    };
+    init();
   }, []);
 
-  // Key totals
-  const totalDonations = useMemo(() => donations.reduce((sum, d) => sum + (d.status === "Completed" ? d.amount : 0), 0), [donations]);
+  // Derive notifications dynamically from real database records (donations and volunteer applications)
+  useEffect(() => {
+    const derived = [];
+    donations.slice(0, 5).forEach((d) => {
+      derived.push({
+        id: `don_${d.receiptId || d._id}`,
+        title: "New donation received",
+        text: `Donation of ${formatInr(d.amount)} received from ${d.showDonor !== false ? (d.donor || d.donorName || "Generous Supporter") : "Anonymous Supporter"}.`,
+        time: d.date ? (typeof d.date === 'string' ? d.date.split('T')[0] : 'Recent') : 'Recent',
+        type: "donation",
+        read: false,
+      });
+    });
+
+    volunteers.slice(0, 5).forEach((v) => {
+      derived.push({
+        id: `vol_${v._id || v.id}`,
+        title: "Volunteer application received",
+        text: `Volunteer application received from ${v.name} for ${v.skills || v.skill || "support"}.`,
+        time: v.date || "Recent",
+        type: "volunteer",
+        read: false,
+      });
+    });
+
+    setNotifications(derived);
+  }, [donations, volunteers]);
+
+  // Key totals — strictly derived from real state
+  const totalDonations = useMemo(() => donations.reduce((sum, d) => sum + (d.status === "Completed" ? (Number(d.amount) || 0) : 0), 0), [donations]);
   const activeRequirements = requirements.filter((r) => r.status === "active").length;
   const volunteerRequests = volunteers.filter((v) => v.status === "pending").length;
   const unreadNotifications = notifications.filter((n) => !n.read).length;
@@ -240,10 +305,26 @@ function OrphanageDashboard() {
     }
   };
 
-  const handleSaveVolunteerRole = (e) => {
+  const handleSaveVolunteerRole = async (e) => {
     e.preventDefault();
     if (!roleForm.roleTitle.trim()) return;
-    setVolunteerRoles((prev) => [{ id: Date.now(), roleTitle: roleForm.roleTitle.trim(), needed: Number(roleForm.needed) || 1, filled: 0, days: roleForm.days, status: "Open" }, ...prev]);
+    try {
+      const res = await api.post("/volunteers/roles", {
+        roleTitle: roleForm.roleTitle.trim(),
+        needed: Number(roleForm.needed) || 1,
+        days: roleForm.days,
+        orphanageId: profile._id || profile.id,
+      });
+      if (res.data?.data) {
+        setVolunteerRoles((prev) => [res.data.data, ...prev]);
+      }
+    } catch (err) {
+      console.error("Could not persist volunteer role:", err);
+      setVolunteerRoles((prev) => [
+        { id: Date.now(), roleTitle: roleForm.roleTitle.trim(), needed: Number(roleForm.needed) || 1, filled: 0, days: roleForm.days, status: "Open" },
+        ...prev
+      ]);
+    }
     setRoleForm({ roleTitle: "", needed: "1", days: "Weekends" });
     setShowRoleModal(false);
   };
@@ -312,7 +393,7 @@ function OrphanageDashboard() {
             {navItems.map(({ id, label, emoji }) => <NavButton key={id} id={id} label={label} emoji={emoji} active={section === id} onClick={() => setSection(id)} />)}
           </nav>
           <div className="border-t border-line p-3">
-            <button type="button" onClick={() => { if (window.confirm("Are you sure you want to log out?")) navigate("/login"); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 font-display text-sm font-semibold text-muted transition-colors hover:bg-mist hover:text-heart"><LogOut size={18} /> 🚪 Logout</button>
+            <button type="button" onClick={() => { if (window.confirm("Are you sure you want to log out?")) navigate("/login"); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 font-display text-sm font-semibold text-muted transition-colors hover:bg-mist hover:text-heart cursor-pointer"><LogOut size={18} /> 🚪 Logout</button>
           </div>
         </aside>
 
@@ -320,19 +401,21 @@ function OrphanageDashboard() {
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-line bg-white/90 px-4 py-3 backdrop-blur-md lg:px-8">
             <div className="flex items-center gap-3">
-              <button type="button" className="rounded-lg border border-line p-2 text-navy lg:hidden" onClick={() => setMobileNav(true)} aria-label="Open menu"><Menu size={18} /></button>
+              <button type="button" className="rounded-lg border border-line p-2 text-navy lg:hidden cursor-pointer" onClick={() => setMobileNav(true)} aria-label="Open menu"><Menu size={18} /></button>
               <div>
-                <p className="font-display text-sm font-bold text-navy lg:text-base">{profile.name}</p>
+                <p className="font-display text-sm font-bold text-navy lg:text-base">{profile.name || "My Organization"}</p>
                 <p className="text-xs text-muted hidden sm:block">Orphanage Portal</p>
               </div>
             </div>
             <div className="flex items-center gap-2.5">
               <StatusBadge status={verificationStatus} />
-              <button type="button" onClick={() => setSection("notifications")} className="relative rounded-lg border border-line p-2 text-navy transition-colors hover:border-leaf/40 hover:bg-mist" aria-label="Notifications">
+              <button type="button" onClick={() => setSection("notifications")} className="relative rounded-lg border border-line p-2 text-navy transition-colors hover:border-leaf/40 hover:bg-mist cursor-pointer" aria-label="Notifications">
                 <Bell size={18} />
                 {unreadNotifications > 0 && <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-heart text-[10px] font-bold text-white">{unreadNotifications}</span>}
               </button>
-              <button type="button" onClick={() => setSection("profile")} className="flex h-9 w-9 items-center justify-center rounded-xl bg-leaf-soft text-leaf font-display font-extrabold text-xs" title="View Profile">{profile.name.slice(0, 2).toUpperCase()}</button>
+              <button type="button" onClick={() => setSection("profile")} className="flex h-9 w-9 items-center justify-center rounded-xl bg-leaf-soft text-leaf font-display font-extrabold text-xs cursor-pointer" title="View Profile">
+                {profile.name ? profile.name.slice(0, 2).toUpperCase() : "HH"}
+              </button>
             </div>
           </header>
           <main className="flex-1 px-4 py-6 md:px-8 md:py-8">{renderContent()}</main>

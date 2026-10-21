@@ -15,11 +15,11 @@ export default function ReceiptModal({ receipt, profile = {}, onClose }) {
     ? (receipt.donor || receipt.donorName || "Generous Supporter")
     : "Anonymous Donor";
 
-  const institutionName = profile.name || receipt.institution?.name || "Hope Children's Home";
-  const institutionAddress = profile.address || receipt.institution?.address || "12, Green Park Road, Coimbatore, Tamil Nadu — 641035";
-  const institutionPan = profile.pan || receipt.institution?.pan || "AAATH1234F";
-  const institutionRegNo = profile.registrationNumber || receipt.institution?.regNo || "TN/CBE/2018/00492";
-  const authorizedPerson = profile.authorizedPerson || receipt.institution?.authorizedSignatory || "Dr. Revathi Sundaram";
+  const institutionName = profile.name || receipt.institution?.name || receipt.orphanageId?.name || "Institution";
+  const institutionAddress = profile.address || receipt.institution?.address || receipt.orphanageId?.address || "Address on official record";
+  const institutionPan = profile.pan || receipt.institution?.pan || receipt.orphanageId?.pan || "PAN on record";
+  const institutionRegNo = profile.registrationNumber || receipt.institution?.regNo || receipt.orphanageId?.registrationNumber || "Reg No on record";
+  const authorizedPerson = profile.authorizedPerson || receipt.institution?.authorizedSignatory || receipt.orphanageId?.authorizedPerson || "Authorized Signatory";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy/60 backdrop-blur-xs overflow-y-auto print:p-0 print:bg-white">

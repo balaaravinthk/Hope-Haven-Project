@@ -14,76 +14,23 @@ export const generateReceiptId = () => {
 };
 
 /**
- * Seed initial mock donations into MongoDB if collection is empty
- */
-const ensureSeedDonations = async () => {
-  try {
-    const count = await Donation.countDocuments();
-    if (count > 0) return;
-
-    const defaultOrphanage = await Orphanage.findOne();
-    const defaultRequirement = await Requirement.findOne();
-
-    if (!defaultOrphanage) return;
-
-    const seedList = [
-      {
-        receiptId: `HH-${new Date().getFullYear()}-84921`,
-        orphanageId: defaultOrphanage._id,
-        requirementId: defaultRequirement?._id || null,
-        donorName: 'Kavitha M.',
-        amount: 5000,
-        showDonor: true,
-        paymentMethod: 'UPI / PhonePe',
-        status: DonationStatus.COMPLETED,
-        date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-        taxPan: 'ABCPM1234K',
-        transactionId: `TXN_UPI_${Date.now()}_1`,
-      },
-      {
-        receiptId: `HH-${new Date().getFullYear()}-71204`,
-        orphanageId: defaultOrphanage._id,
-        requirementId: defaultRequirement?._id || null,
-        donorName: 'Anonymous Donor',
-        amount: 10000,
-        showDonor: false,
-        paymentMethod: 'Net Banking',
-        status: DonationStatus.COMPLETED,
-        date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-        transactionId: `TXN_NET_${Date.now()}_2`,
-      },
-      {
-        receiptId: `HH-${new Date().getFullYear()}-63489`,
-        orphanageId: defaultOrphanage._id,
-        requirementId: defaultRequirement?._id || null,
-        donorName: 'Suresh Kumar',
-        amount: 2500,
-        showDonor: true,
-        paymentMethod: 'Credit Card',
-        status: DonationStatus.COMPLETED,
-        date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-        taxPan: 'XYZPK5678L',
-        transactionId: `TXN_CC_${Date.now()}_3`,
-      },
-    ];
-
-    await Donation.insertMany(seedList);
-  } catch (err) {
-    console.warn('⚠️  Could not seed initial donations:', err.message);
-  }
-};
-
-/**
  * GET /api/donations
  * Retrieves donation ledger with populated orphanage & requirement details
  */
 export const getDonations = async (req, res, next) => {
   try {
-    await ensureSeedDonations();
-
     const query = {};
     if (req.query.orphanageId) {
       query.orphanageId = req.query.orphanageId;
+    } else if (req.user && (req.user.role === 'orphanage' || req.user.role === 'orphanage_admin')) {
+      const orph = await Orphanage.findOne({
+        $or: [{ userId: req.user._id || req.user.id }, { email: req.user.email }],
+      });
+      if (orph) {
+        query.orphanageId = orph._id;
+      } else {
+        query.orphanageId = null;
+      }
     }
 
     const rawDonations = await Donation.find(query)

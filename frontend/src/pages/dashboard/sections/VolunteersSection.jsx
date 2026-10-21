@@ -1,8 +1,17 @@
 import { Plus, Clock, Check, X, UserCheck, Calendar, Phone, Mail } from "lucide-react";
 import { StatusBadge } from "../shared";
-import { upcomingActivities } from "../constants";
 
 export default function VolunteersSection({ volunteers = [], volunteerRequests = 0, volunteerRoles = [], setVolunteerStatus, setShowRoleModal }) {
+  // Derive real confirmed sessions from approved volunteer applications
+  const dynamicUpcoming = volunteers
+    .filter((v) => v.status === "approved" || v.status === "accepted")
+    .map((v) => ({
+      id: v._id || v.id,
+      title: `${v.skills || v.skill || "Volunteer Support"} — ${v.name}`,
+      when: v.schedule || v.availability || "Weekly schedule",
+      people: 1,
+    }));
+
   return (
     <div className="space-y-8 animate-rise">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -103,19 +112,27 @@ export default function VolunteersSection({ volunteers = [], volunteerRequests =
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-line bg-white p-6 shadow-xs">
           <h2 className="font-display text-lg font-bold text-navy">Upcoming Volunteer Activities</h2>
-          <ul className="mt-4 divide-y divide-line">
-            {upcomingActivities.map((a) => (
-              <li key={a.id} className="py-3.5 first:pt-0 last:pb-0">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-navy">{a.title}</p>
-                    <p className="mt-0.5 flex items-center gap-1 text-xs text-muted"><Clock size={12} /> {a.when}</p>
+          {dynamicUpcoming.length === 0 ? (
+            <div className="py-8 text-center text-muted">
+              <Clock size={32} className="mx-auto mb-2 text-muted/60" />
+              <p className="font-semibold text-navy text-sm">No upcoming activities scheduled</p>
+              <p className="text-xs text-muted mt-1">Activities will appear here once volunteer applications are approved.</p>
+            </div>
+          ) : (
+            <ul className="mt-4 divide-y divide-line">
+              {dynamicUpcoming.map((a) => (
+                <li key={a.id} className="py-3.5 first:pt-0 last:pb-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-navy">{a.title}</p>
+                      <p className="mt-0.5 flex items-center gap-1 text-xs text-muted"><Clock size={12} /> {a.when}</p>
+                    </div>
+                    <span className="rounded-full bg-leaf-soft px-2.5 py-1 text-xs font-bold text-leaf-deep">{a.people} confirmed</span>
                   </div>
-                  <span className="rounded-full bg-leaf-soft px-2.5 py-1 text-xs font-bold text-leaf-deep">{a.people} volunteers confirmed</span>
-                </div>
-              </li>
-            ))}
-          </ul>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <div className="rounded-2xl border border-line bg-white p-6 shadow-xs">
@@ -123,17 +140,24 @@ export default function VolunteersSection({ volunteers = [], volunteerRequests =
             <h2 className="font-display text-lg font-bold text-navy">Manage Volunteer Roles</h2>
             <button type="button" onClick={() => setShowRoleModal(true)} className="inline-flex items-center gap-1 text-xs font-bold text-leaf hover:text-leaf-deep cursor-pointer"><Plus size={14} /> Add Role</button>
           </div>
-          <div className="mt-4 space-y-3">
-            {volunteerRoles.map((role) => (
-              <div key={role.id} className="rounded-xl border border-line bg-mist/30 p-3.5">
-                <div className="flex items-center justify-between">
-                  <p className="font-display font-bold text-navy text-sm">{role.roleTitle}</p>
-                  <StatusBadge status={role.status} />
+          {volunteerRoles.length === 0 ? (
+            <div className="py-8 text-center text-muted">
+              <p className="font-semibold text-navy text-sm">No volunteer roles defined yet</p>
+              <p className="text-xs text-muted mt-1">Click "Add Role" above to specify volunteer needs for your home.</p>
+            </div>
+          ) : (
+            <div className="mt-4 space-y-3">
+              {volunteerRoles.map((role) => (
+                <div key={role.id || role._id} className="rounded-xl border border-line bg-mist/30 p-3.5">
+                  <div className="flex items-center justify-between">
+                    <p className="font-display font-bold text-navy text-sm">{role.roleTitle}</p>
+                    <StatusBadge status={role.status} />
+                  </div>
+                  <p className="mt-1 text-xs text-muted">Schedule: {role.days} · {role.filled || 0} of {role.needed} filled</p>
                 </div>
-                <p className="mt-1 text-xs text-muted">Schedule: {role.days} · {role.filled} of {role.needed} filled</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -43,12 +43,12 @@ export default function ProfileSection({ profile = {}, verificationStatus, setEd
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line pb-6">
           <div>
-            <h2 className="font-display text-2xl font-extrabold text-navy">{profile.name || "Hope Children's Home"}</h2>
+            <h2 className="font-display text-2xl font-extrabold text-navy">{profile.name || "My Organization"}</h2>
             <p className="mt-1 text-sm text-muted">{profile.type || "Children's Home / CCI"}</p>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-muted">Verification Status:</span>
-            <StatusBadge status={verificationStatus || profile.verificationStatus || "Approved"} />
+            <StatusBadge status={verificationStatus || profile.verificationStatus || "Pending"} />
           </div>
         </div>
 
@@ -76,8 +76,8 @@ export default function ProfileSection({ profile = {}, verificationStatus, setEd
             ) : (
               <div className="flex h-44 flex-col items-center justify-center bg-mist/60 text-muted p-4 text-center">
                 <Building2 className="h-10 w-10 text-muted/60" />
-                <p className="mt-2 text-xs font-bold text-navy">Building photo on institutional file</p>
-                <p className="text-[11px] text-muted">Exterior_Building_Facade.jpg</p>
+                <p className="mt-2 text-xs font-bold text-navy">No building photo uploaded yet</p>
+                <p className="text-[11px] text-muted">Upload a photo via Edit Profile to showcase your facility.</p>
               </div>
             )}
           </div>
