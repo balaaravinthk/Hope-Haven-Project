@@ -48,6 +48,9 @@ export default function VolunteersSection({ volunteers = [], volunteerRequests =
                   <div>
                     <div className="flex items-center gap-2.5">
                       <p className="font-display text-lg font-bold text-navy">{v.name}</p>
+                      <span className="rounded-md bg-leaf-soft px-2 py-0.5 text-xs font-semibold text-leaf-deep">
+                        Role: {v.roleTitle || "General Volunteer"}
+                      </span>
                       <StatusBadge status={v.status} />
                     </div>
                     <p className="mt-1 text-sm text-ink font-medium">
@@ -85,10 +88,10 @@ export default function VolunteersSection({ volunteers = [], volunteerRequests =
                         </button>
                         <button
                           type="button"
-                          onClick={() => setVolunteerStatus(appId, "declined")}
+                          onClick={() => setVolunteerStatus(appId, "rejected")}
                           className="inline-flex items-center gap-1.5 rounded-xl border border-heart/30 bg-red-50/50 px-4 py-2 text-xs font-bold text-heart transition-all hover:bg-red-100/60 cursor-pointer"
                         >
-                          <X size={14} /> Decline
+                          <X size={14} /> Reject
                         </button>
                       </>
                     ) : (
@@ -150,10 +153,17 @@ export default function VolunteersSection({ volunteers = [], volunteerRequests =
               {volunteerRoles.map((role) => (
                 <div key={role.id || role._id} className="rounded-xl border border-line bg-mist/30 p-3.5">
                   <div className="flex items-center justify-between">
-                    <p className="font-display font-bold text-navy text-sm">{role.roleTitle}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-display font-bold text-navy text-sm">{role.roleTitle}</p>
+                      {role.urgency && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-mist border border-line text-muted">
+                          {role.urgency}
+                        </span>
+                      )}
+                    </div>
                     <StatusBadge status={role.status} />
                   </div>
-                  <p className="mt-1 text-xs text-muted">Schedule: {role.days} · {role.filled || 0} of {role.needed} filled</p>
+                  <p className="mt-1 text-xs text-muted">Schedule: {role.days} · {role.filled || 0} of {role.needed} filled ({role.applied || 0} applied)</p>
                 </div>
               ))}
             </div>

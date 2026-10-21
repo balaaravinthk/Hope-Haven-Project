@@ -7,6 +7,7 @@ import {
   createRole,
   submitApplication,
   getApplications,
+  getMyVolunteerApplications,
 } from '../controllers/volunteerController.js';
 import { optionalAuthenticate } from '../middlewares/authMiddleware.js';
 
@@ -15,6 +16,7 @@ const router = Router();
 // Official Volunteer System Endpoints
 router.post('/apply', optionalAuthenticate, applyVolunteer);
 router.get('/orphanage', optionalAuthenticate, getOrphanageApplications);
+router.get('/my-applications', optionalAuthenticate, getMyVolunteerApplications);
 
 // Applications list & status management
 router.get('/applications', optionalAuthenticate, getApplications);

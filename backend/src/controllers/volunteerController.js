@@ -6,6 +6,7 @@ import { VolunteerRole } from '../models/VolunteerRole.js';
 import { Orphanage } from '../models/Orphanage.js';
 import { Requirement } from '../models/Requirement.js';
 import { User } from '../models/User.js';
+import { Notification, NotificationTypes } from '../models/Notification.js';
 
 /**
  * Safely extract authenticated user from token if present
@@ -66,6 +67,13 @@ export const applyVolunteer = async (req, res, next) => {
 
     // Determine target orphanage
     let targetOrphanageId = orphanageId;
+    if (!targetOrphanageId && roleId) {
+      const targetRole = await VolunteerRole.findById(roleId);
+      if (targetRole && targetRole.orphanageId) {
+        targetOrphanageId = targetRole.orphanageId;
+      }
+    }
+
     if (!targetOrphanageId) {
       const defaultOrp = await Orphanage.findOne();
       if (defaultOrp) {
@@ -90,6 +98,17 @@ export const applyVolunteer = async (req, res, next) => {
       date: new Date().toISOString().split('T')[0],
     });
 
+    // Increment applied counter on VolunteerRole
+    if (roleId) {
+      try {
+        await VolunteerRole.findByIdAndUpdate(roleId, {
+          $inc: { applied: 1 },
+        });
+      } catch (err) {
+        // Non-blocking
+      }
+    }
+
     // If tied to a requirement with volunteer counts, update requirement
     if (requirementId) {
       try {
@@ -97,7 +116,7 @@ export const applyVolunteer = async (req, res, next) => {
           $inc: { volunteersApplied: 1 },
         });
       } catch (err) {
-        // Non-blocking requirement counter update
+        // Non-blocking
       }
     }
 
@@ -127,7 +146,7 @@ export const getOrphanageApplications = async (req, res, next) => {
     } else if (authenticatedUser) {
       // Find orphanage associated with this user
       const orphanage = await Orphanage.findOne({
-        $or: [{ userId: authenticatedUser._id }, { email: authenticatedUser.email }]
+        $or: [{ userId: authenticatedUser._id }, { email: authenticatedUser.email }],
       });
       if (orphanage) {
         filter.orphanageId = orphanage._id;
@@ -137,6 +156,7 @@ export const getOrphanageApplications = async (req, res, next) => {
     const applications = await VolunteerApplication.find(filter)
       .populate('orphanageId', 'name location email phone')
       .populate('requirementId', 'title category')
+      .populate('roleId')
       .sort({ createdAt: -1 });
 
     return sendSuccess(res, 'Orphanage volunteer applications retrieved', applications);
@@ -146,8 +166,52 @@ export const getOrphanageApplications = async (req, res, next) => {
 };
 
 /**
+ * GET /api/volunteers/my-applications
+ * Retrieve volunteer applications submitted by the current authenticated user.
+ */
+export const getMyVolunteerApplications = async (req, res, next) => {
+  try {
+    const authenticatedUser = await extractUserSafely(req);
+    const userQuery = [];
+
+    if (authenticatedUser?._id) {
+      userQuery.push({ volunteerId: authenticatedUser._id });
+    }
+    if (authenticatedUser?.email) {
+      userQuery.push({ email: authenticatedUser.email.toLowerCase().trim() });
+    }
+    if (req.query.email) {
+      userQuery.push({ email: req.query.email.toLowerCase().trim() });
+    }
+
+    if (userQuery.length === 0) {
+      return sendSuccess(res, 'User volunteer applications', []);
+    }
+
+    const applications = await VolunteerApplication.find({ $or: userQuery })
+      .populate('orphanageId', 'name address contact email')
+      .populate('roleId')
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .lean();
+
+    const formatted = applications.map((a) => ({
+      ...a,
+      id: a._id.toString(),
+      orphanageName: a.orphanageId?.name || "Orphanage Partner",
+      orphanageAddress: a.orphanageId?.address || "",
+      orphanageContact: a.orphanageId?.contact || "",
+    }));
+
+    return sendSuccess(res, 'User volunteer applications retrieved', formatted);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * PATCH /api/volunteers/applications/:id/status
  * Update application status ('approved', 'declined', 'accepted', 'rejected', 'pending')
+ * Creates notification for applicant user and updates role fill counts.
  */
 export const updateApplicationStatus = async (req, res, next) => {
   try {
@@ -158,7 +222,6 @@ export const updateApplicationStatus = async (req, res, next) => {
       return sendError(res, 'Status is required', null, 400);
     }
 
-    // Normalize accepted -> approved, rejected -> declined if desired, or preserve
     const validStatuses = Object.values(ApplicationStatus);
     if (!validStatuses.includes(status)) {
       return sendError(
@@ -171,7 +234,6 @@ export const updateApplicationStatus = async (req, res, next) => {
 
     let app = null;
 
-    // Try finding by MongoDB _id first
     if (id.match(/^[0-9a-fA-F]{24}$/)) {
       app = await VolunteerApplication.findByIdAndUpdate(
         id,
@@ -180,7 +242,6 @@ export const updateApplicationStatus = async (req, res, next) => {
       );
     }
 
-    // If not found or id is not ObjectId (e.g. legacy numerical ID or mock)
     if (!app) {
       app = await VolunteerApplication.findOne({
         $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { name: { $exists: true } }],
@@ -193,6 +254,51 @@ export const updateApplicationStatus = async (req, res, next) => {
 
     if (!app) {
       return sendError(res, 'Application not found', null, 404);
+    }
+
+    // 1. Update filled count on VolunteerRole if approved
+    if (app.roleId && (status === 'approved' || status === 'accepted')) {
+      try {
+        const role = await VolunteerRole.findById(app.roleId);
+        if (role) {
+          const newFilled = (role.filled || 0) + 1;
+          const newStatus = newFilled >= role.needed ? 'Filled' : role.status;
+          await VolunteerRole.findByIdAndUpdate(app.roleId, {
+            filled: newFilled,
+            status: newStatus,
+          });
+        }
+      } catch (err) {
+        // Non-blocking
+      }
+    }
+
+    // 2. Dispatch real notification to applicant user
+    try {
+      const orph = app.orphanageId ? await Orphanage.findById(app.orphanageId) : null;
+      const orphanageName = orph?.name || 'the orphanage';
+      const isApproved = status === 'approved' || status === 'accepted';
+      const notifStatus = isApproved ? 'approved' : 'rejected';
+      const title = isApproved
+        ? `Volunteer Application Approved! 🎉`
+        : `Volunteer Application Update`;
+      const message = isApproved
+        ? `Congratulations! Your volunteer application for "${app.roleTitle}" has been approved by ${orphanageName}. They may reach out to you via ${app.phone || app.email}.`
+        : `Thank you for your interest. Your volunteer application for "${app.roleTitle}" at ${orphanageName} was not accepted at this time.`;
+
+      if (app.email) {
+        await Notification.create({
+          recipientUserId: app.volunteerId || null,
+          recipientEmail: app.email.toLowerCase().trim(),
+          title,
+          message,
+          type: NotificationTypes.VOLUNTEER_STATUS,
+          status: notifStatus,
+          relatedId: app._id,
+        });
+      }
+    } catch (notifErr) {
+      console.warn('Could not persist notification for volunteer status:', notifErr.message);
     }
 
     return sendSuccess(res, `Application marked as ${status}`, app);
@@ -216,13 +322,13 @@ export const getRoles = async (req, res, next) => {
 
 export const createRole = async (req, res, next) => {
   try {
-    const { roleTitle, needed, days, orphanageId } = req.body;
+    const { roleTitle, needed, days, orphanageId, urgency, category, description } = req.body;
     const authenticatedUser = await extractUserSafely(req);
 
     let resolvedOrphanageId = orphanageId;
     if (!resolvedOrphanageId && authenticatedUser) {
       const orphanage = await Orphanage.findOne({
-        $or: [{ userId: authenticatedUser._id }, { email: authenticatedUser.email }]
+        $or: [{ userId: authenticatedUser._id }, { email: authenticatedUser.email }],
       });
       if (orphanage) resolvedOrphanageId = orphanage._id;
     }
@@ -232,7 +338,11 @@ export const createRole = async (req, res, next) => {
       roleTitle: (roleTitle || '').trim(),
       needed: Number(needed) || 1,
       filled: 0,
+      applied: 0,
       days: (days || 'Weekends').trim(),
+      urgency: urgency || 'Medium',
+      category: category || 'Education',
+      description: (description || '').trim(),
       status: 'Open',
     });
 

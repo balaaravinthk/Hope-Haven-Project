@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { 
   Search, MapPin, Phone, AlertCircle, HeartHandshake, CreditCard,
   X, CheckCircle2, LayoutDashboard, User, LogOut, Award, Menu, Users,
-  RefreshCw, Inbox, Loader2, Calendar
+  RefreshCw, Inbox, Loader2, Calendar, Bell
 } from "lucide-react";
 import { formatInr, percent } from "./dashboard/shared";
 import logoBest from "../assets/logoisthebest.png";
@@ -71,7 +71,13 @@ export default function UserDashboard() {
     trophies: [],
   });
 
-  // Fetch requirements from backend API
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [myApplications, setMyApplications] = useState([]);
+  const [loadingApplications, setLoadingApplications] = useState(false);
+
+  // Fetch requirements & volunteer roles from backend API
   const fetchRequirements = async () => {
     try {
       setLoading(true);
@@ -98,9 +104,61 @@ export default function UserDashboard() {
     }
   };
 
+  // Fetch live notifications for supporter via GET /api/notifications
+  const fetchNotifications = async () => {
+    try {
+      const res = await api.get("/notifications");
+      if (res.data?.data) {
+        setNotifications(res.data.data.notifications || []);
+        setUnreadCount(res.data.data.unreadCount || 0);
+      }
+    } catch (err) {
+      console.warn("Could not load notifications:", err.message);
+    }
+  };
+
+  // Fetch live volunteer applications submitted by user via GET /api/volunteers/my-applications
+  const fetchMyApplications = async () => {
+    try {
+      setLoadingApplications(true);
+      const res = await api.get("/volunteers/my-applications");
+      if (res.data?.data) {
+        setMyApplications(res.data.data);
+      }
+    } catch (err) {
+      console.warn("Could not load my volunteer applications:", err.message);
+    } finally {
+      setLoadingApplications(false);
+    }
+  };
+
+  const handleMarkAsRead = async (id) => {
+    try {
+      await api.patch(`/notifications/${id}/read`);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id || n._id === id ? { ...n, read: true } : n))
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch (err) {
+      console.warn("Could not mark notification as read:", err.message);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await api.patch("/notifications/read-all");
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setUnreadCount(0);
+    } catch (err) {
+      console.warn("Could not mark all as read:", err.message);
+    }
+  };
+
   useEffect(() => {
     fetchRequirements();
     fetchUserImpact();
+    fetchNotifications();
+    fetchMyApplications();
   }, []);
 
   // Compute filtered and urgency-sorted needs
@@ -229,7 +287,8 @@ export default function UserDashboard() {
 
       const payload = {
         orphanageId: targetOrphanageId,
-        requirementId: volunteerModal._id || volunteerModal.id,
+        roleId: volunteerModal.roleId || (volunteerModal.type === 'volunteer' ? (volunteerModal._id || volunteerModal.id) : null),
+        requirementId: volunteerModal.type === 'fund' ? (volunteerModal._id || volunteerModal.id) : null,
         roleTitle: volunteerModal.title || "Community Volunteer",
         name: volunteerName.trim() || user?.name || "Volunteer Supporter",
         email: user?.email || "supporter@hopehaven.org",
@@ -239,6 +298,10 @@ export default function UserDashboard() {
       };
 
       await api.post("/volunteers/apply", payload);
+
+      // Refresh applications and needs
+      fetchMyApplications();
+      fetchRequirements();
 
       // Dynamically increment volunteers applied on this need card locally
       if (volunteerModal._id || volunteerModal.id) {
@@ -593,6 +656,104 @@ export default function UserDashboard() {
             </div>
           </div>
         </div>
+
+        {/* My Volunteer Registrations */}
+        <div className="bg-white rounded-2xl border border-line p-6 shadow-xs">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-display text-xl font-bold text-navy flex items-center gap-2">
+                <Users size={20} className="text-leaf" /> My Volunteer Registrations
+              </h3>
+              <p className="text-xs text-muted mt-0.5">Live status of your volunteer applications with partner orphanages.</p>
+            </div>
+            <button
+              onClick={fetchMyApplications}
+              className="p-2 text-muted hover:text-navy hover:bg-mist rounded-lg transition-colors cursor-pointer"
+              title="Refresh applications"
+            >
+              <RefreshCw size={16} className={loadingApplications ? "animate-spin" : ""} />
+            </button>
+          </div>
+
+          {loadingApplications ? (
+            <div className="py-8 text-center text-muted">
+              <Loader2 size={24} className="mx-auto animate-spin mb-2 text-leaf" />
+              <p className="text-xs">Loading volunteer applications...</p>
+            </div>
+          ) : myApplications.length === 0 ? (
+            <div className="text-center py-8 border border-dashed border-line rounded-xl bg-haven/30">
+              <Users size={32} className="mx-auto text-muted/50 mb-2" />
+              <p className="text-sm font-semibold text-navy">No volunteer applications yet</p>
+              <p className="text-xs text-muted mt-1 max-w-sm mx-auto">
+                Explore the community feed to discover volunteer opportunities and apply to help local orphanages.
+              </p>
+              <button
+                onClick={() => setSection("feed")}
+                className="mt-4 px-4 py-2 bg-leaf text-white font-semibold text-xs rounded-xl hover:bg-leaf-deep transition-colors cursor-pointer"
+              >
+                Browse Volunteer Roles
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {myApplications.map((app) => {
+                const appId = app._id || app.id;
+                const status = app.status?.toLowerCase() || "pending";
+                const roleTitle = app.roleTitle || app.roleId?.title || "Community Volunteer";
+                const orphanageName = app.orphanageId?.name || "Partner Orphanage";
+                const orphanageCity = app.orphanageId?.city || "";
+                const appDate = app.createdAt ? new Date(app.createdAt).toLocaleDateString() : "";
+
+                return (
+                  <div
+                    key={appId}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-line bg-haven/20 hover:bg-haven/40 transition-colors gap-3"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-display font-bold text-navy text-sm">
+                          {roleTitle}
+                        </span>
+                        {app.roleId?.urgency && (
+                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${urgencyColors[app.roleId.urgency] || "bg-gray-100 text-gray-700"}`}>
+                            {app.roleId.urgency}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted flex items-center gap-1.5">
+                        <MapPin size={12} className="text-muted" /> {orphanageName} {orphanageCity && `• ${orphanageCity}`}
+                        {appDate && ` • Applied on ${appDate}`}
+                      </p>
+                      {app.skills && (
+                        <p className="text-xs text-navy/70">
+                          <span className="font-semibold text-muted">Skills:</span> {app.skills}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {status === "approved" && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200">
+                          <CheckCircle2 size={14} className="text-green-600" /> Approved
+                        </span>
+                      )}
+                      {status === "rejected" && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200">
+                          <X size={14} className="text-red-600" /> Not Selected
+                        </span>
+                      )}
+                      {status !== "approved" && status !== "rejected" && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200">
+                          <Loader2 size={14} className="text-amber-600 animate-spin" /> Under Review
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     );
   };
@@ -628,6 +789,19 @@ export default function UserDashboard() {
           >
             <Award size={18} /> My Profile & Trophies
           </button>
+          <button 
+            onClick={() => setShowNotifications(true)} 
+            className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left font-display text-sm font-semibold text-navy/75 hover:bg-mist hover:text-navy transition-colors cursor-pointer"
+          >
+            <span className="flex items-center gap-3">
+              <Bell size={18} /> Notifications
+            </span>
+            {unreadCount > 0 && (
+              <span className="bg-red-500 text-white text-[11px] font-bold px-2 py-0.5 rounded-full">
+                {unreadCount}
+              </span>
+            )}
+          </button>
         </nav>
         <div className="border-t border-line p-3">
           <button 
@@ -640,20 +814,45 @@ export default function UserDashboard() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Mobile Header */}
-        <header className="lg:hidden sticky top-0 z-30 border-b border-line bg-white/90 backdrop-blur-md px-4 py-3 flex items-center justify-between">
+        {/* Top Header Bar for Desktop & Mobile */}
+        <header className="sticky top-0 z-30 border-b border-line bg-white/90 backdrop-blur-md px-4 lg:px-8 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button className="p-2 border border-line rounded-lg text-navy cursor-pointer" onClick={() => setMobileNav(true)}>
+            <button className="lg:hidden p-2 border border-line rounded-lg text-navy cursor-pointer hover:bg-mist" onClick={() => setMobileNav(true)}>
               <Menu size={18} />
             </button>
-            <span className="font-display font-bold text-navy">Hope Haven</span>
+            <div className="hidden lg:block">
+              <h2 className="font-display font-bold text-navy text-lg">
+                {section === "feed" ? "Community Support Feed" : "Supporter Profile & Activities"}
+              </h2>
+            </div>
+            <span className="lg:hidden font-display font-bold text-navy">Hope Haven</span>
           </div>
-          <button 
-            onClick={() => setSection("profile")} 
-            className="w-8 h-8 rounded-full bg-mist flex items-center justify-center text-navy font-bold text-xs uppercase cursor-pointer"
-          >
-            {user?.name ? user.name.slice(0, 2) : "JD"}
-          </button>
+
+          <div className="flex items-center gap-3">
+            {/* Notification Bell Button */}
+            <button
+              onClick={() => setShowNotifications(true)}
+              className="relative p-2 rounded-xl border border-line bg-white text-navy hover:bg-mist hover:border-navy/30 transition-colors cursor-pointer"
+              title="Notifications"
+            >
+              <Bell size={19} />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center border-2 border-white animate-pulse">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </button>
+
+            <button 
+              onClick={() => setSection("profile")} 
+              className="flex items-center gap-2 p-1.5 pr-3 rounded-full bg-mist hover:bg-line border border-line transition-colors cursor-pointer"
+            >
+              <div className="w-8 h-8 rounded-full bg-navy text-white flex items-center justify-center font-bold text-xs uppercase">
+                {user?.name ? user.name.slice(0, 2) : "JD"}
+              </div>
+              <span className="hidden sm:inline text-xs font-bold text-navy max-w-[120px] truncate">{user?.name || "Supporter"}</span>
+            </button>
+          </div>
         </header>
 
         <main className="flex-1 px-4 py-6 md:px-8 md:py-8">
@@ -686,6 +885,19 @@ export default function UserDashboard() {
                 }`}
               >
                 <Award size={18} /> Profile & Trophies
+              </button>
+              <button 
+                onClick={() => { setShowNotifications(true); setMobileNav(false); }} 
+                className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left font-display text-sm font-semibold text-navy/75 hover:bg-mist cursor-pointer"
+              >
+                <span className="flex items-center gap-3">
+                  <Bell size={18} /> Notifications
+                </span>
+                {unreadCount > 0 && (
+                  <span className="bg-red-500 text-white text-[11px] font-bold px-2 py-0.5 rounded-full">
+                    {unreadCount}
+                  </span>
+                )}
               </button>
               <button 
                 onClick={handleLogout} 
@@ -968,6 +1180,141 @@ export default function UserDashboard() {
                 </form>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Notifications Drawer / Modal */}
+      {showNotifications && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden animate-rise">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-line">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-leaf-soft text-leaf flex items-center justify-center">
+                  <Bell size={20} />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-navy text-lg leading-tight">Notifications</h3>
+                  <p className="text-xs text-muted">
+                    {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount > 1 ? "s" : ""}` : "All notifications caught up"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {unreadCount > 0 && (
+                  <button
+                    onClick={handleMarkAllRead}
+                    className="text-xs font-semibold text-leaf hover:text-leaf-deep transition-colors px-2.5 py-1 rounded-lg hover:bg-leaf-soft cursor-pointer"
+                  >
+                    Mark all read
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowNotifications(false)}
+                  className="p-1.5 text-muted hover:text-navy hover:bg-mist rounded-lg transition-colors cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {notifications.length === 0 ? (
+                <div className="py-12 text-center">
+                  <div className="w-14 h-14 bg-mist rounded-full flex items-center justify-center mx-auto mb-3 text-muted">
+                    <Bell size={26} />
+                  </div>
+                  <h4 className="font-display font-bold text-navy text-sm">No notifications yet</h4>
+                  <p className="text-xs text-muted mt-1 max-w-xs mx-auto">
+                    When an orphanage reviews your volunteer applications or responds to your donations, you will receive updates here.
+                  </p>
+                </div>
+              ) : (
+                notifications.map((notif) => {
+                  const notifId = notif._id || notif.id;
+                  const isRead = notif.read;
+                  const isApproved = notif.status === "approved" || notif.title?.toLowerCase().includes("approved");
+                  const isRejected = notif.status === "rejected" || notif.title?.toLowerCase().includes("rejected");
+                  const notifTime = notif.createdAt
+                    ? new Date(notif.createdAt).toLocaleString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit"
+                      })
+                    : "";
+
+                  return (
+                    <div
+                      key={notifId}
+                      onClick={() => !isRead && handleMarkAsRead(notifId)}
+                      className={`p-4 rounded-xl border transition-all cursor-pointer ${
+                        !isRead
+                          ? isApproved
+                            ? "bg-green-50/70 border-green-200 shadow-xs"
+                            : isRejected
+                            ? "bg-red-50/70 border-red-200 shadow-xs"
+                            : "bg-leaf-soft/50 border-leaf/30 shadow-xs"
+                          : "bg-white border-line/70 hover:bg-haven/30"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="shrink-0 mt-0.5">
+                          {isApproved ? (
+                            <div className="w-8 h-8 rounded-full bg-green-100 text-green-700 flex items-center justify-center">
+                              <CheckCircle2 size={16} />
+                            </div>
+                          ) : isRejected ? (
+                            <div className="w-8 h-8 rounded-full bg-red-100 text-red-700 flex items-center justify-center">
+                              <X size={16} />
+                            </div>
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center">
+                              <Bell size={16} />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <h5 className="font-display font-bold text-navy text-sm truncate">
+                              {notif.title}
+                            </h5>
+                            {!isRead && (
+                              <span className="w-2 h-2 rounded-full bg-leaf shrink-0" title="Unread" />
+                            )}
+                          </div>
+                          <p className="text-xs text-navy/80 mt-1 leading-relaxed">
+                            {notif.message}
+                          </p>
+                          <div className="flex items-center justify-between mt-2 pt-1">
+                            <span className="text-[11px] text-muted">{notifTime}</span>
+                            {!isRead && (
+                              <span className="text-[11px] font-semibold text-leaf hover:underline">
+                                Mark as read
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 border-t border-line bg-haven/30 flex justify-end">
+              <button
+                onClick={() => setShowNotifications(false)}
+                className="px-4 py-2 bg-navy text-white text-xs font-bold rounded-xl hover:bg-navy-deep transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

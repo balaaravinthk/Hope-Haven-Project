@@ -49,7 +49,7 @@ function OrphanageDashboard() {
   const [reqFilter, setReqFilter] = useState("all");
   const [showReqModal, setShowReqModal] = useState(false);
   const [editingReqId, setEditingReqId] = useState(null);
-  const [reqForm, setReqForm] = useState({ title: "", category: "Food & Nutrition", amountNeeded: "" });
+  const [reqForm, setReqForm] = useState({ title: "", category: "Food & Nutrition", amountNeeded: "", urgency: "Medium", description: "" });
 
   // Donations state — strictly initialized to empty
   const [donations, setDonations] = useState([]);
@@ -59,7 +59,7 @@ function OrphanageDashboard() {
   const [volunteers, setVolunteers] = useState([]);
   const [volunteerRoles, setVolunteerRoles] = useState([]);
   const [showRoleModal, setShowRoleModal] = useState(false);
-  const [roleForm, setRoleForm] = useState({ roleTitle: "", needed: "1", days: "Weekends" });
+  const [roleForm, setRoleForm] = useState({ roleTitle: "", needed: "1", days: "Weekends", urgency: "Medium", category: "Education", description: "" });
 
   // Notifications state — dynamically derived from real activity
   const [notifications, setNotifications] = useState([]);
@@ -223,6 +223,8 @@ function OrphanageDashboard() {
           title: reqForm.title.trim(),
           category: reqForm.category,
           amountNeeded: needed,
+          urgency: reqForm.urgency || "Medium",
+          description: (reqForm.description || "").trim(),
         });
       } else {
         // Post new requirement via POST /api/requirements
@@ -230,29 +232,37 @@ function OrphanageDashboard() {
           title: reqForm.title.trim(),
           category: reqForm.category,
           amountNeeded: needed,
+          urgency: reqForm.urgency || "Medium",
+          description: (reqForm.description || "").trim(),
           orphanageId: profile._id || profile.id,
         });
-        setNotifications((prev) => [{ id: Date.now(), title: "New requirement published", text: `You posted a new requirement: "${reqForm.title.trim()}" (Needed: ${formatInr(needed)})`, time: "Just now", type: "requirement", read: false }, ...prev]);
+        setNotifications((prev) => [{ id: Date.now(), title: "New requirement published", text: `You posted a new requirement: "${reqForm.title.trim()}" (${reqForm.urgency || "Medium"} Priority · Needed: ${formatInr(needed)})`, time: "Just now", type: "requirement", read: false }, ...prev]);
       }
       await fetchLiveRequirements();
     } catch (err) {
       console.error("Error saving requirement:", err);
       // Local fallback
       if (editingReqId) {
-        setRequirements((prev) => prev.map((item) => (item.id === editingReqId || item._id === editingReqId) ? { ...item, title: reqForm.title.trim(), category: reqForm.category, amountNeeded: needed, status: item.amountRaised >= needed ? "fulfilled" : item.status } : item));
+        setRequirements((prev) => prev.map((item) => (item.id === editingReqId || item._id === editingReqId) ? { ...item, title: reqForm.title.trim(), category: reqForm.category, amountNeeded: needed, urgency: reqForm.urgency || "Medium", description: reqForm.description || "", status: item.amountRaised >= needed ? "fulfilled" : item.status } : item));
       } else {
-        setRequirements((prev) => [{ id: Date.now(), title: reqForm.title.trim(), category: reqForm.category, amountNeeded: needed, amountRaised: 0, status: "active" }, ...prev]);
+        setRequirements((prev) => [{ id: Date.now(), title: reqForm.title.trim(), category: reqForm.category, amountNeeded: needed, urgency: reqForm.urgency || "Medium", description: reqForm.description || "", amountRaised: 0, status: "active" }, ...prev]);
       }
     }
 
-    setReqForm({ title: "", category: "Food & Nutrition", amountNeeded: "" });
+    setReqForm({ title: "", category: "Food & Nutrition", amountNeeded: "", urgency: "Medium", description: "" });
     setEditingReqId(null);
     setShowReqModal(false);
   };
 
   const startEditRequirement = (item) => {
     setEditingReqId(item.id || item._id);
-    setReqForm({ title: item.title, category: item.category || "Food & Nutrition", amountNeeded: String(item.amountNeeded) });
+    setReqForm({
+      title: item.title,
+      category: item.category || "Food & Nutrition",
+      amountNeeded: String(item.amountNeeded),
+      urgency: item.urgency || "Medium",
+      description: item.description || "",
+    });
     setShowReqModal(true);
   };
 
@@ -313,6 +323,9 @@ function OrphanageDashboard() {
         roleTitle: roleForm.roleTitle.trim(),
         needed: Number(roleForm.needed) || 1,
         days: roleForm.days,
+        urgency: roleForm.urgency || "Medium",
+        category: roleForm.category || "Education",
+        description: (roleForm.description || "").trim(),
         orphanageId: profile._id || profile.id,
       });
       if (res.data?.data) {
@@ -321,11 +334,20 @@ function OrphanageDashboard() {
     } catch (err) {
       console.error("Could not persist volunteer role:", err);
       setVolunteerRoles((prev) => [
-        { id: Date.now(), roleTitle: roleForm.roleTitle.trim(), needed: Number(roleForm.needed) || 1, filled: 0, days: roleForm.days, status: "Open" },
+        {
+          id: Date.now(),
+          roleTitle: roleForm.roleTitle.trim(),
+          needed: Number(roleForm.needed) || 1,
+          filled: 0,
+          days: roleForm.days,
+          urgency: roleForm.urgency || "Medium",
+          category: roleForm.category || "Education",
+          status: "Open"
+        },
         ...prev
       ]);
     }
-    setRoleForm({ roleTitle: "", needed: "1", days: "Weekends" });
+    setRoleForm({ roleTitle: "", needed: "1", days: "Weekends", urgency: "Medium", category: "Education", description: "" });
     setShowRoleModal(false);
   };
 

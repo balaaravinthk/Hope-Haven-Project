@@ -1,6 +1,13 @@
 import { Plus, Pencil, CheckCircle2, Trash2, ClipboardList } from "lucide-react";
 import { StatusBadge, formatInr, percent } from "../shared";
 
+const urgencyBadges = {
+  Critical: "bg-red-100 text-red-700 border-red-200",
+  High: "bg-orange-100 text-orange-700 border-orange-200",
+  Medium: "bg-blue-100 text-blue-700 border-blue-200",
+  Low: "bg-green-100 text-green-700 border-green-200",
+};
+
 export default function RequirementsSection({
   requirements = [],
   reqFilter,
@@ -69,9 +76,14 @@ export default function RequirementsSection({
             <article key={itemId} className="rounded-2xl border border-line bg-white p-6 shadow-xs transition-shadow hover:shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex flex-wrap items-center gap-2">
                     <h2 className="font-display text-xl font-bold text-navy">{item.title}</h2>
                     <span className="rounded-md bg-mist px-2 py-0.5 text-xs font-semibold text-muted">{item.category || "General"}</span>
+                    {item.urgency && (
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider border ${urgencyBadges[item.urgency] || urgencyBadges.Medium}`}>
+                        {item.urgency} Priority
+                      </span>
+                    )}
                   </div>
                   <p className="mt-1.5 text-sm font-medium text-ink">
                     <strong className="text-navy">{formatInr(item.amountNeeded)}</strong> needed ·{" "}

@@ -1,5 +1,6 @@
 import { sendSuccess, sendError } from '../utils/apiResponse.js';
 import { Requirement, RequirementCategories, UrgencyLevels, RequirementStatus } from '../models/Requirement.js';
+import { VolunteerRole } from '../models/VolunteerRole.js';
 import { Orphanage, OrphanageTypes, VerificationStatus } from '../models/Orphanage.js';
 
 /**
@@ -191,24 +192,32 @@ export const getRequirements = async (req, res, next) => {
       })
       .lean();
 
-    // Sort requirements:
-    // 1. Critical / High urgency first (Critical: 4, High: 3, Medium: 2, Low: 1)
-    // 2. Lowest percent raised (needs furthest from goal appear first)
-    const sortedRequirements = rawRequirements.sort((a, b) => {
-      const weightA = URGENCY_WEIGHTS[a.urgency] || 0;
-      const weightB = URGENCY_WEIGHTS[b.urgency] || 0;
+    // Query active volunteer roles to include volunteer needs in the unified donor feed
+    const roleQuery = { status: 'Open' };
+    if (urgency) {
+      roleQuery.urgency = urgency;
+    }
+    if (search && search.trim()) {
+      const searchRegex = new RegExp(search.trim(), 'i');
+      roleQuery.$or = [
+        { roleTitle: searchRegex },
+        { description: searchRegex },
+        { category: searchRegex },
+      ];
+    }
+    if (category && category !== 'All') {
+      roleQuery.category = category;
+    }
 
-      if (weightB !== weightA) {
-        return weightB - weightA;
-      }
+    const rawRoles = await VolunteerRole.find(roleQuery)
+      .populate({
+        path: 'orphanageId',
+        select: 'name type address city state contact email verifiedBadge verificationStatus photoPreview',
+      })
+      .lean();
 
-      const pctA = a.amountNeeded > 0 ? (a.amountRaised || 0) / a.amountNeeded : 1;
-      const pctB = b.amountNeeded > 0 ? (b.amountRaised || 0) / b.amountNeeded : 1;
-      return pctA - pctB;
-    });
-
-    // Format output with normalized orphanage structure for frontend consumption
-    const formatted = sortedRequirements.map((r) => {
+    // Format funding requirements
+    const formattedRequirements = rawRequirements.map((r) => {
       const orph = r.orphanageId || {};
       const amountNeeded = Number(r.amountNeeded) || 0;
       const amountRaised = Number(r.amountRaised) || 0;
@@ -225,17 +234,74 @@ export const getRequirements = async (req, res, next) => {
         remainingAmount: Math.max(0, amountNeeded - amountRaised),
         orphanage: {
           id: orph._id?.toString() || null,
-          name: orph.name || "Hope Children's Home",
-          address: orph.address || `${orph.city || 'Coimbatore'}, ${orph.state || 'Tamil Nadu'}`,
-          contact: orph.contact || "+91 98765 43210",
+          name: orph.name || "Orphanage Partner",
+          address: orph.address || `${orph.city || ''}, ${orph.state || 'India'}`,
+          contact: orph.contact || "",
           email: orph.email || "",
-          verified: orph.verifiedBadge ?? (orph.verificationStatus === 'Approved'),
-          verificationStatus: orph.verificationStatus || 'Approved',
+          verified: orph.verifiedBadge ?? (orph.verificationStatus === 'Approved' || orph.verificationStatus === 'Verified'),
+          verificationStatus: orph.verificationStatus || 'Pending',
         },
       };
     });
 
-    return sendSuccess(res, 'Requirements fetched successfully', formatted);
+    // Format volunteer roles
+    const formattedRoles = rawRoles.map((role) => {
+      const orph = role.orphanageId || {};
+      const needed = Number(role.needed) || 1;
+      const applied = Number(role.applied) || 0;
+      const filled = Number(role.filled) || 0;
+      const percentFilled = Math.min(100, Math.round((applied / needed) * 100));
+
+      return {
+        _id: role._id,
+        id: role._id.toString(),
+        type: 'volunteer',
+        roleId: role._id.toString(),
+        title: role.roleTitle,
+        category: role.category || 'Education',
+        description: role.description || `Seeking ${needed} volunteer(s) for ${role.days}.`,
+        urgency: role.urgency || 'Medium',
+        volunteersNeeded: needed,
+        volunteersApplied: applied,
+        volunteersFilled: filled,
+        days: role.days,
+        schedule: role.days,
+        status: 'active',
+        datePosted: role.createdAt,
+        orphanageId: orph._id?.toString() || null,
+        orphanage: {
+          id: orph._id?.toString() || null,
+          name: orph.name || "Orphanage Partner",
+          address: orph.address || `${orph.city || ''}, ${orph.state || 'India'}`,
+          contact: orph.contact || "",
+          email: orph.email || "",
+          verified: orph.verifiedBadge ?? (orph.verificationStatus === 'Approved' || orph.verificationStatus === 'Verified'),
+          verificationStatus: orph.verificationStatus || 'Pending',
+        },
+      };
+    });
+
+    // Combine all feed items and Double-Sort by:
+    // 1. Urgency: Critical (4) > High (3) > Medium (2) > Low (1)
+    // 2. Need completion progress
+    const combinedNeeds = [...formattedRequirements, ...formattedRoles].sort((a, b) => {
+      const weightA = URGENCY_WEIGHTS[a.urgency] || 0;
+      const weightB = URGENCY_WEIGHTS[b.urgency] || 0;
+
+      if (weightB !== weightA) {
+        return weightB - weightA;
+      }
+
+      const pctA = a.type === 'volunteer'
+        ? (a.volunteersApplied || 0) / (a.volunteersNeeded || 1)
+        : a.amountNeeded > 0 ? (a.amountRaised || 0) / a.amountNeeded : 1;
+      const pctB = b.type === 'volunteer'
+        ? (b.volunteersApplied || 0) / (b.volunteersNeeded || 1)
+        : b.amountNeeded > 0 ? (b.amountRaised || 0) / b.amountNeeded : 1;
+      return pctA - pctB;
+    });
+
+    return sendSuccess(res, 'Requirements fetched successfully', combinedNeeds);
   } catch (error) {
     next(error);
   }

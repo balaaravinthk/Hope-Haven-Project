@@ -31,9 +31,29 @@ const volunteerRoleSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    applied: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     days: {
       type: String,
       required: true,
+      trim: true,
+    },
+    urgency: {
+      type: String,
+      enum: ['Critical', 'High', 'Medium', 'Low'],
+      default: 'Medium',
+    },
+    category: {
+      type: String,
+      default: 'Education',
+      trim: true,
+    },
+    description: {
+      type: String,
+      default: '',
       trim: true,
     },
     status: {
@@ -56,3 +76,5 @@ const volunteerRoleSchema = new mongoose.Schema(
 );
 
 export const VolunteerRole = mongoose.models.VolunteerRole || mongoose.model('VolunteerRole', volunteerRoleSchema);
+
+export default VolunteerRole;
