@@ -313,6 +313,8 @@ function Register() {
         formData.append("aadhaarVerified", "true");
         formData.append("password", form.password);
 
+        
+
         // Append building photo (2MB max) and registration documents (5MB max)
         if (files.frontPicture) {
           formData.append("buildingPhoto", files.frontPicture);
