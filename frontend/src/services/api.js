@@ -33,7 +33,7 @@ api.interceptors.response.use(
   (error) => {
     // If backend returns a 401 unauthorized on an authenticated request, handle cleanup
     if (error.response && error.response.status === 401) {
-      const isAuthEndpoint = error.config.url?.includes('/auth/login') || error.config.url?.includes('/auth/register');
+      const isAuthEndpoint = error.config.url?.includes('/login') || error.config.url?.includes('/register');
       if (!isAuthEndpoint) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');

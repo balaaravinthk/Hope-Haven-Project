@@ -228,6 +228,33 @@ export const login = async (req, res, next) => {
       );
     }
 
+    // Verification check for Orphanage accounts
+    if (user.role === UserRoles.ORPHANAGE_ADMIN || user.role === 'orphanage') {
+      const orphanage = await Orphanage.findOne({
+        $or: [{ userId: user._id }, { email: user.email }],
+      });
+
+      if (orphanage) {
+        if (orphanage.verificationStatus === VerificationStatus.REJECTED) {
+          return sendError(
+            res,
+            'Your registration has been rejected / cancelled by the administrator. You cannot log in.',
+            { verificationStatus: VerificationStatus.REJECTED },
+            403
+          );
+        }
+
+        if (orphanage.verificationStatus === VerificationStatus.PENDING) {
+          return sendError(
+            res,
+            'Your registration is currently pending admin approval. You will be able to log in once approved.',
+            { verificationStatus: VerificationStatus.PENDING },
+            403
+          );
+        }
+      }
+    }
+
     // Issue JWT access and refresh tokens
     const tokens = generateTokens({
       id: user._id.toString(),

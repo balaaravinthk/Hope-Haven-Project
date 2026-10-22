@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, AlertCircle, Loader2, Shield } from "lucide-react";
 import logoBest from "../assets/logoisthebest.png";
 import { useAuth } from "../context/AuthContext";
 
@@ -127,9 +127,34 @@ function Login() {
 
             {/* Error Notification Alert */}
             {activeError && (
-              <div className="mb-5 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50/90 p-4 text-sm font-medium text-rose-700 animate-in fade-in slide-in-from-top-1 duration-200">
-                <AlertCircle className="h-5 w-5 shrink-0 text-rose-600 mt-0.5" />
-                <div className="flex-1">{activeError}</div>
+              <div
+                className={`mb-5 flex items-start gap-3 rounded-xl border p-4 text-sm font-medium animate-in fade-in slide-in-from-top-1 duration-200 ${
+                  activeError.toLowerCase().includes("rejected") || activeError.toLowerCase().includes("cancelled")
+                    ? "border-rose-300 bg-rose-50 text-rose-800"
+                    : activeError.toLowerCase().includes("pending")
+                    ? "border-amber-300 bg-amber-50 text-amber-800"
+                    : "border-rose-200 bg-rose-50/90 text-rose-700"
+                }`}
+              >
+                <AlertCircle
+                  className={`h-5 w-5 shrink-0 mt-0.5 ${
+                    activeError.toLowerCase().includes("rejected") || activeError.toLowerCase().includes("cancelled")
+                      ? "text-rose-600"
+                      : activeError.toLowerCase().includes("pending")
+                      ? "text-amber-600"
+                      : "text-rose-600"
+                  }`}
+                />
+                <div className="flex-1">
+                  <div className="font-bold">
+                    {activeError.toLowerCase().includes("rejected") || activeError.toLowerCase().includes("cancelled")
+                      ? "Registration Rejected / Cancelled"
+                      : activeError.toLowerCase().includes("pending")
+                      ? "Registration Pending Approval"
+                      : "Login Error"}
+                  </div>
+                  <div className="mt-0.5 text-xs md:text-sm">{activeError}</div>
+                </div>
               </div>
             )}
 
@@ -216,6 +241,16 @@ function Login() {
                 Create an account
               </Link>
             </p>
+
+            <div className="mt-5 border-t border-line/70 pt-4 text-center">
+              <Link
+                to="/admin/login"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-navy/70 hover:text-leaf transition-colors"
+              >
+                <Shield size={14} className="text-leaf-deep" />
+                <span>Administrator? Access Admin Portal →</span>
+              </Link>
+            </div>
           </div>
         </form>
       </div>

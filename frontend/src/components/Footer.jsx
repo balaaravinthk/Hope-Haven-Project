@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import logoBest from "../assets/logoisthebest.png";
 
 function Footer() {
@@ -26,6 +27,9 @@ function Footer() {
             <a href="#contact" className="transition-colors hover:text-white">
               Contact
             </a>
+            <Link to="/admin/login" className="transition-colors text-leaf hover:text-white">
+              Admin Portal
+            </Link>
           </div>
         </div>
 

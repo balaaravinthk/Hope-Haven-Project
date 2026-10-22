@@ -55,6 +55,13 @@ function Navbar() {
           ))}
 
           <Link
+            to="/admin/login"
+            className="font-display text-[0.95rem] font-semibold text-leaf-deep transition-all duration-200 hover:text-navy hover:-translate-y-0.5 active:scale-95"
+          >
+            Admin Portal
+          </Link>
+
+          <Link
             to="/login"
             className="font-display text-[0.95rem] font-semibold text-navy/80 transition-all duration-200 hover:text-leaf hover:-translate-y-0.5 active:scale-95"
           >
@@ -99,6 +106,14 @@ function Navbar() {
                 {link.label}
               </button>
             ))}
+
+            <Link
+              to="/admin/login"
+              className="py-1.5 font-display text-base font-semibold text-leaf-deep hover:text-navy"
+              onClick={() => setOpen(false)}
+            >
+              Admin Portal
+            </Link>
 
             <Link
               to="/login"

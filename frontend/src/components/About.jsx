@@ -33,7 +33,7 @@ function About() {
             Hope Haven brings orphanages, donors, and volunteers onto one calm,
             trusted platform — making support simple, transparent, and human.
           </p>
-          <div className="animate-fade-line mt-8 h-1 w-20 origin-left rounded-full bg-leaf" />
+          {/* <div className="animate-fade-line mt-8 h-1 w-20 origin-left rounded-full bg-leaf" /> */}
         </div>
 
         <div className="mt-14 grid gap-8 md:grid-cols-3 md:gap-8">
