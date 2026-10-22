@@ -174,13 +174,9 @@ function Register() {
   }, [otpTimer]);
 
   useEffect(() => {
-    if (!submitted) return undefined;
+    if (!submitted || role === "orphanage") return undefined;
     if (countdown <= 0) {
-      if (role === "orphanage") {
-        navigate("/orphanage/dashboard");
-      } else {
-        navigate("/dashboard");
-      }
+      navigate("/dashboard");
       return undefined;
     }
     const id = setTimeout(() => setCountdown((c) => c - 1), 1000);
@@ -351,22 +347,26 @@ function Register() {
       });
 
       const data = response.data?.data;
-      if (data?.accessToken && data?.user) {
+      if (role === "supporter" && data?.accessToken && data?.user) {
         localStorage.setItem("token", data.accessToken);
         localStorage.setItem("user", JSON.stringify(data.user));
       }
 
       if (role === "orphanage") {
+        // Clear any prior auth session so pending orphanage cannot bypass login
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+
         const savedProfile = {
           name: form.organizationName?.trim() || "Hope Children’s Home",
           type: form.organizationType || "Children’s Home / CCI",
-          address: form.address || "12, Green Park Road, Coimbatore, Tamil Nadu",
-          contact: form.contactNumber || "+91 98765 43210",
-          email: form.orgEmail || "hopehome@email.com",
-          registrationNumber: form.registrationNumber || "TN/CCI/2019/0842",
-          pan: form.panNumber || "ABCDE1234F",
-          cciJj: form.cciJjNumber || "JJ/CCI/TN/0842",
-          authorizedPerson: form.authorizedPersonName || "Authorized Representative",
+          address: form.address || "",
+          contact: form.contactNumber || "",
+          email: form.orgEmail || "",
+          registrationNumber: form.registrationNumber || "",
+          pan: form.panNumber || "",
+          cciJj: form.cciJjNumber || "",
+          authorizedPerson: form.authorizedPersonName || "",
           photoPreview: photoPreview || null,
           verificationStatus: "Pending",
         };
@@ -496,27 +496,17 @@ function Register() {
                   Thank you for registering
                 </h2>
                 <p className="mt-3 leading-7 text-muted">
-                  We’ve received your orphanage details and documents. Our team
-                  will review them and get back to you shortly.
+                  We’ve received your orphanage details and documents. Please log in after the admin accepts your request.
                 </p>
 
-                <div className="mt-6 rounded-2xl border border-leaf/25 bg-leaf-soft/60 p-4">
-                  <div className="flex items-center justify-center gap-2 text-sm font-bold text-leaf-deep">
-                    <Clock size={16} className="animate-spin text-leaf" />
-                    <span>
-                      Redirecting to your dashboard in{" "}
-                      <span className="font-extrabold text-navy">{countdown}</span>{" "}
-                      second{countdown === 1 ? "" : "s"}...
-                    </span>
+                <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+                  <div className="flex items-center justify-center gap-2 text-sm font-bold text-amber-800">
+                    <Clock size={16} className="text-amber-600" />
+                    <span>Status: Pending Admin Approval</span>
                   </div>
-                  <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-mist-deep">
-                    <div
-                      className="h-full rounded-full bg-leaf transition-all duration-1000 ease-linear"
-                      style={{
-                        width: `${Math.min(100, Math.max(0, ((5 - countdown) / 5) * 100))}%`,
-                      }}
-                    />
-                  </div>
+                  <p className="mt-1 text-xs text-amber-700">
+                    Our team will verify your organization credentials. Once approved by the administrator, you can log in to your dashboard to post requirements and volunteer requests.
+                  </p>
                 </div>
               </>
             ) : (
@@ -531,22 +521,12 @@ function Register() {
               </>
             )}
             <div className="mt-8 flex flex-wrap justify-center gap-3">
-              {role === "orphanage" ? (
-                <button
-                  type="button"
-                  onClick={() => navigate("/orphanage/dashboard")}
-                  className="rounded-xl bg-leaf px-6 py-3 font-display font-bold text-white transition-colors hover:bg-leaf-deep"
-                >
-                  Go to Dashboard now
-                </button>
-              ) : (
-                <Link
-                  to="/login"
-                  className="rounded-xl bg-leaf px-6 py-3 font-display font-bold text-white transition-colors hover:bg-leaf-deep"
-                >
-                  Go to Login
-                </Link>
-              )}
+              <Link
+                to="/login"
+                className="rounded-xl bg-leaf px-6 py-3 font-display font-bold text-white transition-colors hover:bg-leaf-deep"
+              >
+                Go to Login
+              </Link>
               <button
                 type="button"
                 onClick={resetAll}

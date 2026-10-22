@@ -261,6 +261,10 @@ export const getRequirements = async (req, res, next) => {
         category: role.category || 'Education',
         description: role.description || `Seeking ${needed} volunteer(s) for ${role.days}.`,
         urgency: role.urgency || 'Medium',
+        amountNeeded: needed,
+        amountRaised: applied,
+        percentRaised: percentFilled,
+        percentageRaised: percentFilled,
         volunteersNeeded: needed,
         volunteersApplied: applied,
         volunteersFilled: filled,
@@ -332,19 +336,34 @@ export const createRequirement = async (req, res, next) => {
       return sendError(res, 'Title, category, and amount needed are required.', null, 400);
     }
 
-    // Resolve an orphanage ID if not passed directly (use logged-in user or first available)
-    let assignedOrphanageId = orphanageId;
-    if (!assignedOrphanageId) {
-      const firstOrphanage = await Orphanage.findOne();
-      assignedOrphanageId = firstOrphanage?._id;
+    let targetOrphanage = null;
+    if (orphanageId) {
+      targetOrphanage = await Orphanage.findById(orphanageId);
+    }
+    if (!targetOrphanage && req.user) {
+      targetOrphanage = await Orphanage.findOne({
+        $or: [{ userId: req.user._id }, { email: req.user.email }],
+      });
+    }
+    if (!targetOrphanage) {
+      targetOrphanage = await Orphanage.findOne();
     }
 
-    if (!assignedOrphanageId) {
+    if (!targetOrphanage) {
       return sendError(res, 'No orphanage found to link this requirement with.', null, 400);
     }
 
+    if (targetOrphanage.verificationStatus !== VerificationStatus.APPROVED) {
+      return sendError(
+        res,
+        'Your orphanage must be approved by an administrator before posting requirements.',
+        null,
+        403
+      );
+    }
+
     const newReq = await Requirement.create({
-      orphanageId: assignedOrphanageId,
+      orphanageId: targetOrphanage._id,
       title: title.trim(),
       category,
       amountNeeded: Number(amountNeeded),

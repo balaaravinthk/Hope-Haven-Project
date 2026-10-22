@@ -18,6 +18,7 @@ export default function RequirementsSection({
   startEditRequirement,
   markFulfilled,
   deleteRequirement,
+  isApproved = true,
 }) {
   const filtered = requirements.filter((item) => {
     if (reqFilter === "active") return item.status === "active";
@@ -35,11 +36,21 @@ export default function RequirementsSection({
         <button
           type="button"
           onClick={() => {
+            if (!isApproved) {
+              alert("Only approved orphanages can post requirements. Your account is pending admin approval.");
+              return;
+            }
             setEditingReqId(null);
             setReqForm({ title: "", category: "Food & Nutrition", amountNeeded: "" });
             setShowReqModal(true);
           }}
-          className="inline-flex items-center gap-2 rounded-xl bg-leaf px-4 py-2.5 font-display text-sm font-bold text-white shadow-xs transition-colors hover:bg-leaf-deep cursor-pointer"
+          disabled={!isApproved}
+          className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 font-display text-sm font-bold shadow-xs transition-colors ${
+            !isApproved
+              ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+              : "bg-leaf text-white hover:bg-leaf-deep cursor-pointer"
+          }`}
+          title={!isApproved ? "Pending admin approval" : "Add Requirement"}
         >
           <Plus size={16} /> Add Requirement
         </button>

@@ -1,34 +1,17 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Shield, Eye, EyeOff, AlertCircle, Loader2, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Shield, Eye, EyeOff, AlertCircle, Loader2, ArrowLeft } from "lucide-react";
 import logoBest from "../assets/logoisthebest.png";
 import api from "../services/api";
-import { useAuth } from "../context/AuthContext";
-
-const AUTHORIZED_ADMINS = [
-  "bala@gmail.com",
-  "guru@gmail.com",
-  "abi@gmail.com",
-  "dhandapani@gmail.com",
-];
 
 function AdminLogin() {
   const navigate = useNavigate();
-  const { setError: setAuthError } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-
-  const handleSelectAdmin = (adminEmail) => {
-    setEmail(adminEmail);
-    if (!password) {
-      setPassword("12345");
-    }
-    setErrorMessage("");
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -119,29 +102,6 @@ function AdminLogin() {
         {/* Login form card */}
         <form onSubmit={handleSubmit} className="animate-rise-delay mx-auto mt-8 max-w-xl">
           <div className="rounded-2xl border border-line bg-white/95 p-6 shadow-xl shadow-navy/5 backdrop-blur-sm md:p-8">
-            {/* Authorized Admin Quick Select */}
-            <div className="mb-6 rounded-xl border border-leaf/30 bg-leaf/5 p-4">
-              <p className="font-display text-xs font-bold uppercase tracking-wider text-leaf-deep">
-                Authorized Admin Accounts (Click to Fill):
-              </p>
-              <div className="mt-2.5 flex flex-wrap gap-2">
-                {AUTHORIZED_ADMINS.map((adminEmail) => (
-                  <button
-                    key={adminEmail}
-                    type="button"
-                    onClick={() => handleSelectAdmin(adminEmail)}
-                    className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer ${
-                      email.toLowerCase() === adminEmail
-                        ? "border-navy bg-navy text-white shadow-sm"
-                        : "border-line bg-white text-navy/80 hover:border-leaf hover:text-navy"
-                    }`}
-                  >
-                    {adminEmail}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Error Notification Alert */}
             {errorMessage && (
               <div className="mb-5 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50/95 p-4 text-sm font-medium text-rose-700 animate-in fade-in slide-in-from-top-1 duration-200">

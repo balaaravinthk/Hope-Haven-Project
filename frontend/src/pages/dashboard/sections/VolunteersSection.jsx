@@ -1,7 +1,14 @@
 import { Plus, Clock, Check, X, UserCheck, Calendar, Phone, Mail } from "lucide-react";
 import { StatusBadge } from "../shared";
 
-export default function VolunteersSection({ volunteers = [], volunteerRequests = 0, volunteerRoles = [], setVolunteerStatus, setShowRoleModal }) {
+export default function VolunteersSection({
+  volunteers = [],
+  volunteerRequests = 0,
+  volunteerRoles = [],
+  setVolunteerStatus,
+  setShowRoleModal,
+  isApproved = true,
+}) {
   // Derive real confirmed sessions from approved volunteer applications
   const dynamicUpcoming = volunteers
     .filter((v) => v.status === "approved" || v.status === "accepted")
@@ -19,7 +26,25 @@ export default function VolunteersSection({ volunteers = [], volunteerRequests =
           <h1 className="font-display text-3xl font-extrabold text-navy">Volunteers</h1>
           <p className="mt-1 text-sm text-muted">Review volunteer applications, manage upcoming activities, and define volunteer needs.</p>
         </div>
-        <button type="button" onClick={() => setShowRoleModal(true)} className="inline-flex items-center gap-2 rounded-xl bg-leaf px-4 py-2.5 font-display text-sm font-bold text-white shadow-xs transition-colors hover:bg-leaf-deep cursor-pointer"><Plus size={16} /> Post Volunteer Need</button>
+        <button
+          type="button"
+          onClick={() => {
+            if (!isApproved) {
+              alert("Only approved orphanages can post volunteer requests. Your account is pending admin approval.");
+              return;
+            }
+            setShowRoleModal(true);
+          }}
+          disabled={!isApproved}
+          className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 font-display text-sm font-bold shadow-xs transition-colors ${
+            !isApproved
+              ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+              : "bg-leaf text-white hover:bg-leaf-deep cursor-pointer"
+          }`}
+          title={!isApproved ? "Pending admin approval" : "Post Volunteer Need"}
+        >
+          <Plus size={16} /> Post Volunteer Need
+        </button>
       </div>
 
       {/* Volunteer Applications */}

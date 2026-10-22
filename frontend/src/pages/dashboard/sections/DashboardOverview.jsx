@@ -11,7 +11,7 @@ export default function DashboardOverview({
   setSection, setEditingReqId, setReqForm, setShowReqModal,
 }) {
   const alerts = {
-    Pending: { border: "border-amber-300/40", bg: "bg-glow", text: "text-navy", Icon: Clock, iconCls: "text-amber-600", title: "Documents Under Verification", desc: "Your orphanage profile and documents are currently under review by our admin team. You can still set up requirements and view donations. Verification usually takes 24–48 hours." },
+    Pending: { border: "border-amber-300/60", bg: "bg-amber-50", text: "text-amber-900", Icon: Clock, iconCls: "text-amber-600", title: "Registration Under Admin Verification", desc: "Your orphanage profile and documents are currently under review. Once accepted by the administrator, you will be able to post requirements and volunteer requests." },
     Verified: { border: "border-leaf/30", bg: "bg-leaf-soft", text: "text-leaf-deep", Icon: ShieldCheck, iconCls: "text-leaf", title: "Organization Verified & Active", desc: "Your orphanage is verified! Donors and volunteers can discover your profile, donate directly, and apply to volunteer." },
     Approved: { border: "border-leaf/30", bg: "bg-leaf-soft", text: "text-leaf-deep", Icon: ShieldCheck, iconCls: "text-leaf", title: "Organization Verified & Active", desc: "Your orphanage is verified! Donors and volunteers can discover your profile, donate directly, and apply to volunteer." },
     Rejected: { border: "border-heart/25", bg: "bg-red-50", text: "text-heart", Icon: Ban, iconCls: "text-heart", title: "Verification Needs Attention", desc: "Your submitted verification documents could not be verified. Please visit the Profile section to update your details and re-upload valid proofs." },
@@ -91,7 +91,28 @@ export default function DashboardOverview({
 
       {/* Quick Actions */}
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" onClick={() => { setSection("requirements"); setEditingReqId(null); setReqForm({ title: "", category: "Food & Nutrition", amountNeeded: "" }); setShowReqModal(true); }} className="inline-flex items-center gap-2 rounded-xl bg-leaf px-4 py-2.5 font-display text-sm font-bold text-white shadow-xs transition-colors hover:bg-leaf-deep cursor-pointer"><Plus size={16} /> Add New Requirement</button>
+        <button
+          type="button"
+          onClick={() => {
+            if (verificationStatus !== "Approved") {
+              alert("Only approved orphanages can post requirements. Your account is pending admin approval.");
+              return;
+            }
+            setSection("requirements");
+            setEditingReqId(null);
+            setReqForm({ title: "", category: "Food & Nutrition", amountNeeded: "" });
+            setShowReqModal(true);
+          }}
+          disabled={verificationStatus !== "Approved"}
+          className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 font-display text-sm font-bold shadow-xs transition-colors ${
+            verificationStatus !== "Approved"
+              ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+              : "bg-leaf text-white hover:bg-leaf-deep cursor-pointer"
+          }`}
+          title={verificationStatus !== "Approved" ? "Pending admin approval" : "Add Requirement"}
+        >
+          <Plus size={16} /> Add New Requirement
+        </button>
         <button type="button" onClick={() => setSection("volunteers")} className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-4 py-2.5 font-display text-sm font-bold text-navy transition-colors hover:border-leaf/40 hover:bg-mist/40 cursor-pointer"><Users size={16} /> Review Volunteers ({volunteerRequests})</button>
         <button type="button" onClick={() => setSection("profile")} className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-4 py-2.5 font-display text-sm font-bold text-navy transition-colors hover:border-leaf/40 hover:bg-mist/40 cursor-pointer"><Building2 size={16} /> View Organization Profile</button>
       </div>

@@ -325,16 +325,34 @@ export const createRole = async (req, res, next) => {
     const { roleTitle, needed, days, orphanageId, urgency, category, description } = req.body;
     const authenticatedUser = await extractUserSafely(req);
 
-    let resolvedOrphanageId = orphanageId;
-    if (!resolvedOrphanageId && authenticatedUser) {
-      const orphanage = await Orphanage.findOne({
+    let targetOrphanage = null;
+    if (orphanageId) {
+      targetOrphanage = await Orphanage.findById(orphanageId);
+    }
+    if (!targetOrphanage && authenticatedUser) {
+      targetOrphanage = await Orphanage.findOne({
         $or: [{ userId: authenticatedUser._id }, { email: authenticatedUser.email }],
       });
-      if (orphanage) resolvedOrphanageId = orphanage._id;
+    }
+    if (!targetOrphanage) {
+      targetOrphanage = await Orphanage.findOne();
+    }
+
+    if (!targetOrphanage) {
+      return sendError(res, 'No orphanage found for this request.', null, 404);
+    }
+
+    if (targetOrphanage.verificationStatus !== 'Approved') {
+      return sendError(
+        res,
+        'Your orphanage must be approved by an administrator before posting volunteer requests.',
+        null,
+        403
+      );
     }
 
     const newRole = await VolunteerRole.create({
-      orphanageId: resolvedOrphanageId || null,
+      orphanageId: targetOrphanage._id,
       roleTitle: (roleTitle || '').trim(),
       needed: Number(needed) || 1,
       filled: 0,

@@ -6,13 +6,14 @@ import {
   updateRequirement,
   deleteRequirement,
 } from '../controllers/requirementController.js';
+import { optionalAuthenticate } from '../middlewares/authMiddleware.js';
 
 const router = Router();
 
 router.get('/', getRequirements);
 router.get('/feed', getLiveFeed);
-router.post('/', createRequirement);
-router.put('/:id', updateRequirement);
-router.delete('/:id', deleteRequirement);
+router.post('/', optionalAuthenticate, createRequirement);
+router.put('/:id', optionalAuthenticate, updateRequirement);
+router.delete('/:id', optionalAuthenticate, deleteRequirement);
 
 export default router;

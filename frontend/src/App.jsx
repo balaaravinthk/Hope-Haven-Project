@@ -10,6 +10,7 @@ import UserDashboard from "./pages/UserDashboard";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminProtectedRoute from "./components/AdminProtectedRoute";
+import OrphanageProtectedRoute from "./components/OrphanageProtectedRoute";
 
 function App() {
   return (
@@ -19,7 +20,14 @@ function App() {
         <Route path="/contact" element={<Contact />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/orphanage/dashboard" element={<OrphanageDashboard />} />
+        <Route
+          path="/orphanage/dashboard"
+          element={
+            <OrphanageProtectedRoute>
+              <OrphanageDashboard />
+            </OrphanageProtectedRoute>
+          }
+        />
         <Route path="/dashboard" element={<UserDashboard />} />
 
         {/* Admin Portal Routes */}

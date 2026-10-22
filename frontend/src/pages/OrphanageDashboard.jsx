@@ -213,6 +213,10 @@ function OrphanageDashboard() {
   // ── Requirement Actions ──────────────────────────────────────────────
   const handleSaveRequirement = async (e) => {
     e.preventDefault();
+    if (verificationStatus !== "Approved") {
+      alert("Only approved orphanages can post requirements. Your account is pending admin approval.");
+      return;
+    }
     const needed = Number(reqForm.amountNeeded);
     if (!reqForm.title.trim() || !needed) return;
 
@@ -317,6 +321,10 @@ function OrphanageDashboard() {
 
   const handleSaveVolunteerRole = async (e) => {
     e.preventDefault();
+    if (verificationStatus !== "Approved") {
+      alert("Only approved orphanages can post volunteer requests. Your account is pending admin approval.");
+      return;
+    }
     if (!roleForm.roleTitle.trim()) return;
     try {
       const res = await api.post("/volunteers/roles", {
@@ -375,11 +383,11 @@ function OrphanageDashboard() {
       case "dashboard":
         return <DashboardOverview profile={profile} verificationStatus={verificationStatus} setVerificationStatus={setVerificationStatus} requirements={requirements} donations={donations} totalDonations={totalDonations} activeRequirements={activeRequirements} volunteerRequests={volunteerRequests} setSection={setSection} setEditingReqId={setEditingReqId} setReqForm={setReqForm} setShowReqModal={setShowReqModal} />;
       case "requirements":
-        return <RequirementsSection requirements={requirements} reqFilter={reqFilter} setReqFilter={setReqFilter} setEditingReqId={setEditingReqId} setReqForm={setReqForm} setShowReqModal={setShowReqModal} startEditRequirement={startEditRequirement} markFulfilled={markFulfilled} deleteRequirement={deleteRequirement} />;
+        return <RequirementsSection requirements={requirements} reqFilter={reqFilter} setReqFilter={setReqFilter} setEditingReqId={setEditingReqId} setReqForm={setReqForm} setShowReqModal={setShowReqModal} startEditRequirement={startEditRequirement} markFulfilled={markFulfilled} deleteRequirement={deleteRequirement} isApproved={verificationStatus === "Approved"} />;
       case "donations":
         return <DonationsSection donations={donations} totalDonations={totalDonations} setActiveReceipt={setActiveReceipt} />;
       case "volunteers":
-        return <VolunteersSection volunteers={volunteers} volunteerRequests={volunteerRequests} volunteerRoles={volunteerRoles} setVolunteerStatus={setVolunteerStatus} setShowRoleModal={setShowRoleModal} />;
+        return <VolunteersSection volunteers={volunteers} volunteerRequests={volunteerRequests} volunteerRoles={volunteerRoles} setVolunteerStatus={setVolunteerStatus} setShowRoleModal={setShowRoleModal} isApproved={verificationStatus === "Approved"} />;
       case "notifications":
         return <NotificationsSection notifications={notifications} setNotifications={setNotifications} unreadNotifications={unreadNotifications} />;
       case "profile":
@@ -440,7 +448,22 @@ function OrphanageDashboard() {
               </button>
             </div>
           </header>
-          <main className="flex-1 px-4 py-6 md:px-8 md:py-8">{renderContent()}</main>
+          <main className="flex-1 px-4 py-6 md:px-8 md:py-8">
+            {verificationStatus !== "Approved" && (
+              <div className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-900 flex items-start gap-3 shadow-xs">
+                <div className="rounded-full bg-amber-100 p-1.5 text-amber-700 shrink-0 mt-0.5">
+                  <Bell size={16} />
+                </div>
+                <div className="flex-1 text-sm">
+                  <p className="font-bold">Account Verification Pending Approval</p>
+                  <p className="mt-0.5 text-xs text-amber-850">
+                    Your orphanage registration is currently pending administrator verification. Once accepted by the admin, you will be able to post requirements and volunteer requests.
+                  </p>
+                </div>
+              </div>
+            )}
+            {renderContent()}
+          </main>
         </div>
       </div>
 
