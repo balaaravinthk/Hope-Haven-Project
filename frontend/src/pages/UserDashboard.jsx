@@ -13,7 +13,7 @@ import { useAuth } from "../context/AuthContext";
 const urgencyColors = {
   "Critical": "bg-red-100 text-red-700 border-red-200",
   "High": "bg-orange-100 text-orange-700 border-orange-200",
-  "Medium": "bg-blue-100 text-blue-700 border-blue-200",
+  "Medium": "bg-emerald-100 text-emerald-800 border-emerald-200",
   "Low": "bg-green-100 text-green-700 border-green-200"
 };
 
@@ -855,8 +855,16 @@ export default function UserDashboard() {
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-6 md:px-8 md:py-8">
+        <main className="relative flex-1 overflow-hidden px-4 py-6 md:px-8 md:py-8">
+          <div className="pointer-events-none absolute inset-0 select-none overflow-hidden" aria-hidden="true">
+            <div className="absolute -top-10 -right-10 h-72 w-72 rounded-full bg-emerald-200/25 blur-3xl" />
+            <div className="absolute bottom-10 -left-10 h-72 w-72 rounded-full bg-teal-200/20 blur-3xl" />
+            <svg className="absolute top-12 right-[5%] h-12 w-12 rotate-12 text-[#2f8f5b] opacity-15" viewBox="0 0 60 60" fill="currentColor"><path d="M10 50 C12 25 32 12 50 10 C48 35 28 48 10 50 Z" /></svg>
+            <svg className="absolute bottom-20 left-[4%] h-12 w-12 -rotate-45 text-[#2f8f5b] opacity-15" viewBox="0 0 60 60" fill="currentColor"><path d="M10 50 C12 25 32 12 50 10 C48 35 28 48 10 50 Z" /></svg>
+          </div>
+          <div className="relative z-10">
           {section === "feed" ? renderFeed() : renderProfile()}
+          </div>
         </main>
       </div>
 

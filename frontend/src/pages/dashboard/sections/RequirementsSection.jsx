@@ -4,7 +4,7 @@ import { StatusBadge, formatInr, percent } from "../shared";
 const urgencyBadges = {
   Critical: "bg-red-100 text-red-700 border-red-200",
   High: "bg-orange-100 text-orange-700 border-orange-200",
-  Medium: "bg-blue-100 text-blue-700 border-blue-200",
+  Medium: "bg-emerald-100 text-emerald-800 border-emerald-200",
   Low: "bg-green-100 text-green-700 border-green-200",
 };
 

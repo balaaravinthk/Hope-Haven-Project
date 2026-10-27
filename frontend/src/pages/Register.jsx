@@ -436,18 +436,32 @@ function Register() {
   );
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-haven">
-      <div
-        className="pointer-events-none absolute inset-0 opacity-35"
-        aria-hidden="true"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at 1px 1px, rgba(26,54,84,0.08) 1px, transparent 0)",
-          backgroundSize: "28px 28px",
-        }}
-      />
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#f2faf5] via-[#e5f6ed] to-[#d6f2e2]">
+      {/* Background Graphic Elements - Mint Green Waves & Botanical Leaves */}
+      <div className="pointer-events-none absolute inset-0 select-none overflow-hidden" aria-hidden="true">
+        <div className="absolute -top-24 -left-24 h-96 w-96 rounded-full bg-emerald-200/35 blur-3xl" />
+        <div className="absolute top-1/2 -right-20 h-96 w-96 rounded-full bg-emerald-300/25 blur-3xl" />
+        <div className="absolute -bottom-20 left-1/4 h-80 w-80 rounded-full bg-teal-200/25 blur-3xl" />
+        <svg className="absolute -top-10 -right-20 h-full w-[600px] text-[#a7dfc2]/40" viewBox="0 0 800 800" fill="none">
+          <path d="M800 0 C640 120 540 260 560 440 C580 620 480 720 380 800 L800 800 Z" fill="currentColor" opacity="0.5" />
+          <path d="M800 160 C680 260 620 380 640 520 C660 660 580 740 520 800 L800 800 Z" fill="#8fd3b0" opacity="0.3" />
+        </svg>
+        <svg className="absolute bottom-0 left-0 h-64 w-64 text-[#2f8f5b] opacity-20 md:h-80 md:w-80" viewBox="0 0 300 300" fill="currentColor">
+          <path d="M-20 320 Q60 220 120 140 Q170 70 230 20" stroke="currentColor" strokeWidth="4" fill="none" />
+          <path d="M50 240 C35 210 20 205 0 210 C10 230 25 245 50 240 Z" />
+          <path d="M60 230 C85 220 100 205 105 185 C90 195 75 210 60 230 Z" />
+          <path d="M90 180 C70 155 55 152 35 160 C45 178 62 188 90 180 Z" />
+          <path d="M102 170 C125 155 138 140 142 120 C125 132 112 150 102 170 Z" />
+        </svg>
+        <svg className="absolute top-[20%] left-[8%] h-10 w-10 -rotate-12 text-[#2f8f5b] opacity-20" viewBox="0 0 60 60" fill="currentColor">
+          <path d="M10 50 C12 25 32 12 50 10 C48 35 28 48 10 50 Z" />
+        </svg>
+        <svg className="absolute bottom-[25%] right-[10%] h-11 w-11 rotate-45 text-[#2f8f5b] opacity-20" viewBox="0 0 60 60" fill="currentColor">
+          <path d="M10 50 C12 25 32 12 50 10 C48 35 28 48 10 50 Z" />
+        </svg>
+      </div>
 
-      <div className="relative mx-auto max-w-5xl px-5 py-8 md:px-8 md:py-12">
+      <div className="relative z-10 mx-auto max-w-5xl px-5 py-8 md:px-8 md:py-12">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <Link to="/" className="inline-flex items-center gap-2.5">
             <img

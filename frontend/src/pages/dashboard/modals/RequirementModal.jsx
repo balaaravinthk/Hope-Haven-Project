@@ -17,7 +17,7 @@ const PRIORITIES = [
     value: "Medium",
     label: "Medium Priority",
     desc: "School books, uniforms, routine maintenance",
-    badge: "bg-blue-100 text-blue-700 border-blue-200",
+    badge: "bg-emerald-100 text-emerald-800 border-emerald-200",
   },
   {
     value: "Low",

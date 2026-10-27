@@ -448,7 +448,14 @@ function OrphanageDashboard() {
               </button>
             </div>
           </header>
-          <main className="flex-1 px-4 py-6 md:px-8 md:py-8">
+          <main className="relative flex-1 overflow-hidden px-4 py-6 md:px-8 md:py-8">
+            <div className="pointer-events-none absolute inset-0 select-none overflow-hidden" aria-hidden="true">
+              <div className="absolute -top-10 -right-10 h-72 w-72 rounded-full bg-emerald-200/25 blur-3xl" />
+              <div className="absolute bottom-10 -left-10 h-72 w-72 rounded-full bg-teal-200/20 blur-3xl" />
+              <svg className="absolute top-12 right-[5%] h-12 w-12 rotate-12 text-[#2f8f5b] opacity-15" viewBox="0 0 60 60" fill="currentColor"><path d="M10 50 C12 25 32 12 50 10 C48 35 28 48 10 50 Z" /></svg>
+              <svg className="absolute bottom-20 left-[4%] h-12 w-12 -rotate-45 text-[#2f8f5b] opacity-15" viewBox="0 0 60 60" fill="currentColor"><path d="M10 50 C12 25 32 12 50 10 C48 35 28 48 10 50 Z" /></svg>
+            </div>
+            <div className="relative z-10">
             {verificationStatus !== "Approved" && (
               <div className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-900 flex items-start gap-3 shadow-xs">
                 <div className="rounded-full bg-amber-100 p-1.5 text-amber-700 shrink-0 mt-0.5">
@@ -463,6 +470,7 @@ function OrphanageDashboard() {
               </div>
             )}
             {renderContent()}
+            </div>
           </main>
         </div>
       </div>

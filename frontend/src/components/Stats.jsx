@@ -7,15 +7,15 @@ function Stats() {
   ];
 
   return (
-    <section className="border-y border-line bg-white py-14 md:py-16">
+    <section className="border-b border-emerald-200/60 bg-gradient-to-b from-[#f7fcf9] to-[#eef8f2] py-14 md:py-16">
       <div className="mx-auto max-w-7xl px-5 md:px-8">
         <div className="grid grid-cols-2 gap-8 lg:grid-cols-4 lg:gap-6">
           {stats.map((item) => (
             <div key={item.title} className="text-center lg:text-left">
-              <p className="font-display text-3xl font-extrabold text-navy md:text-4xl">
+              <p className="font-display text-3xl font-extrabold text-[#0d2820] md:text-4xl">
                 {item.number}
               </p>
-              <p className="mt-2 text-sm font-medium text-muted md:text-base">
+              <p className="mt-2 text-sm font-medium text-[#3d5e52] md:text-base">
                 {item.title}
               </p>
             </div>

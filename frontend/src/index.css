@@ -4,19 +4,19 @@
   --font-display: "Nunito", ui-sans-serif, system-ui, sans-serif;
   --font-body: "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
 
-  --color-navy: #1a3654;
-  --color-navy-deep: #12263d;
-  --color-navy-soft: #2a4d73;
-  --color-leaf: #2f8f5b;
-  --color-leaf-deep: #247048;
-  --color-leaf-soft: #e8f5ee;
+  --color-navy: #0e2e23;
+  --color-navy-deep: #071c14;
+  --color-navy-soft: #164032;
+  --color-leaf: #10b981;
+  --color-leaf-deep: #059669;
+  --color-leaf-soft: #e2f7ec;
   --color-heart: #d64545;
-  --color-glow: #fff6e8;
-  --color-mist: #f3f7f5;
-  --color-mist-deep: #e4eee8;
-  --color-ink: #1a2b3c;
-  --color-muted: #5a6b7a;
-  --color-line: #d5e0d9;
+  --color-glow: #e8fbf1;
+  --color-mist: #f0faf4;
+  --color-mist-deep: #ddf2e5;
+  --color-ink: #0d2820;
+  --color-muted: #3d5e52;
+  --color-line: #cbe8d9;
 }
 
 @layer base {
@@ -43,14 +43,14 @@
 @layer utilities {
   .bg-haven {
     background:
-      radial-gradient(ellipse 80% 60% at 15% 20%, rgba(47, 143, 91, 0.14), transparent 55%),
-      radial-gradient(ellipse 70% 50% at 90% 10%, rgba(255, 246, 232, 0.9), transparent 50%),
-      radial-gradient(ellipse 60% 45% at 70% 85%, rgba(26, 54, 84, 0.08), transparent 55%),
-      linear-gradient(165deg, #f7faf8 0%, #eef5f1 45%, #e6efe9 100%);
+      radial-gradient(ellipse 80% 60% at 15% 15%, rgba(16, 185, 129, 0.12), transparent 55%),
+      radial-gradient(ellipse 70% 50% at 90% 15%, rgba(110, 231, 183, 0.16), transparent 50%),
+      radial-gradient(ellipse 60% 45% at 70% 85%, rgba(14, 46, 35, 0.06), transparent 55%),
+      linear-gradient(165deg, #f2faf5 0%, #e6f6ee 45%, #daf0e3 100%);
   }
 
   .bg-haven-soft {
-    background: linear-gradient(180deg, #ffffff 0%, var(--color-mist) 100%);
+    background: linear-gradient(180deg, #ffffff 0%, #edf8f2 100%);
   }
 
   .text-balance {
