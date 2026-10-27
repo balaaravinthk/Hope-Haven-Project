@@ -35,6 +35,7 @@ function Footer() {
 
         <div className="my-8 border-t border-white/10" />
 
+
         <div className="flex flex-col items-center justify-between gap-3 text-sm text-white/55 md:flex-row">
           <p>© 2026 Hope Haven. All rights reserved.</p>
           <p>Care. Love. Support. Together.</p>
